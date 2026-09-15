@@ -96,6 +96,51 @@ Very low fat intakes are a poor idea generally, and particularly when hormone
 health is the stated concern. The specific floor is a practical convention
 rather than a precisely derived threshold.
 
+### Water
+
+The daily target is **2 litres**.
+
+This is a **practical, round target**, not a derived requirement. Fluid needs
+vary substantially with body size, climate, activity and how much water you get
+from food, and general guidance is usually expressed as a range of total fluid
+from all sources rather than a single number of glasses of plain water.
+
+Two reasons it earns a place on the habit list anyway. Thirst is misread as
+hunger often enough to matter when you are in a deficit and already hungry. And
+a high-fibre plan — which this one is — is noticeably more comfortable
+well-hydrated than not.
+
+If you are training hard, in heat, or simply larger, 2 litres is a floor rather
+than a goal. Pale urine is a more useful signal than any number an app gives you.
+
+### Eating the same menu every day
+
+The default plan mode repeats one menu across the week. This is a legitimate
+strategy rather than a compromise: it removes a few hundred food decisions a
+week, makes the shopping trivial, and makes your actual intake considerably more
+accurate than seven different days ever will be.
+
+Two genuine considerations, and the app handles both:
+
+**Micronutrient variety.** A single day's menu, however well built, draws on a
+narrower set of foods than seven varied ones. The practical answer is to get
+your variety *across weeks* rather than within them — change the menu each week
+rather than running the same one for three months. The generator gives you a
+different menu on every reroll for exactly this reason.
+
+**Cumulative intake of any one food.** A 95g tin of tuna is unremarkable on one
+plate; seven of them is a different question, and it is a question only a
+repeating menu raises. The planner refuses to build two slots of the same day on
+the same main protein source, and the plan view shows you the weekly total for
+anything appearing more than once a day.
+
+Where a food has published intake guidance that depends on frequency — fish and
+mercury being the common example — the app flags that the menu contains it daily
+and points you at your own food safety authority's current advice. It
+deliberately does not quote a number, because the right number depends on the
+species and on whether you are pregnant or planning to be, and that is not
+something to take from an app.
+
 ### Fibre
 
 The target is roughly **14 g per 1000 kcal**, clamped to 25–38 g/day. This

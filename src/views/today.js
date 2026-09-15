@@ -213,7 +213,11 @@ function habitRow(habit, entry, dailyMap, date) {
     control = `<button class="toggle" role="switch" aria-pressed="${entry[habit.key] === true}"
         aria-label="${esc(habit.label)}" data-habit="${habit.key}" data-type="boolean"></button>`;
   } else if (habit.type === 'number') {
-    control = `<input type="number" inputmode="numeric" step="${habit.key === 'steps' ? 100 : 0.5}" min="0"
+    const step = habit.step ?? (habit.key === 'steps' ? 100 : 0.5);
+    const quick = (habit.quickAdd ?? []).map((amount) =>
+      `<button class="btn btn--sm" data-habit="${habit.key}" data-type="add" data-amount="${amount}"
+         aria-label="Add ${amount}${esc(habit.unit ?? '')} to ${esc(habit.label)}">+${amount}${esc(habit.unit ?? '')}</button>`).join('');
+    control = `${quick}<input type="number" inputmode="decimal" step="${step}" min="0"
         data-habit="${habit.key}" data-type="number" value="${entry[habit.key] ?? ''}"
         placeholder="${habit.targetMin}" aria-label="${esc(habit.label)}">`;
   } else if (habit.type === 'choice') {
@@ -254,6 +258,12 @@ export function afterRender(root, ctx) {
       el.addEventListener('click', () => patch({ [key]: el.getAttribute('aria-pressed') !== 'true' }));
     } else if (el.dataset.type === 'number') {
       el.addEventListener('change', () => patch({ [key]: numVal(el) }));
+    } else if (el.dataset.type === 'add') {
+      el.addEventListener('click', () => {
+        const current = Number(store.getDaily(date)?.[key] ?? 0);
+        const next = Math.round((current + Number(el.dataset.amount)) * 100) / 100;
+        patch({ [key]: next });
+      });
     } else if (el.dataset.type === 'choice') {
       el.addEventListener('click', () => patch({ [key]: el.dataset.value }));
     }

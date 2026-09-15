@@ -41,6 +41,19 @@ export const HABITS = [
     why: 'Logged honestly, "mostly" is far more useful data than a dishonest "yes". The pattern in these answers is what tells you which meals are not working.',
   },
   {
+    key: 'water',
+    label: 'Drank 2L of water',
+    type: 'number',
+    unit: 'L',
+    targetMin: 2,
+    targetMax: 3,
+    step: 0.25,
+    /** Water is the one habit you log in pieces through the day. */
+    quickAdd: [0.25, 0.5],
+    icon: '💧',
+    why: 'Thirst gets misread as hunger often enough to matter during a deficit. It also makes the difference between a high-fibre plan feeling good and feeling like a brick.',
+  },
+  {
     key: 'steps',
     label: 'Steps (5-8k)',
     type: 'number',
@@ -75,6 +88,7 @@ export function emptyDaily(date = todayIso()) {
     weightKg: null,
     sleep: null,
     affirmations: false,
+    water: null,
     mealPlan: null,
     steps: null,
     journaled: false,
@@ -360,6 +374,14 @@ export function weeklyInsights({ adherence, trend, phase, targetWeeklyChangeKg, 
     notes.push({
       tone: 'info',
       text: `Steps came in under target most days. Daily movement tends to drop quietly during a deficit - it is a common reason the scale stalls while intake has not changed at all.`,
+    });
+  }
+
+  const water = adherence?.perHabit.find((h) => h.key === 'water');
+  if (water?.pct != null && water.pct < 65) {
+    notes.push({
+      tone: 'info',
+      text: `Water hit target on ${water.daysHit} of ${water.daysLogged} logged days. Worth fixing before you read anything into the scale - being under-hydrated moves daily weight around on its own, and it makes a high-fibre plan uncomfortable.`,
     });
   }
 

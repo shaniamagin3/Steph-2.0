@@ -3,7 +3,7 @@
  */
 
 import { html, raw, esc, fmt, toast, modal, confirmDialog } from '../lib/ui.js';
-import { generateWeek, regenerateDay, swapMeal, planQuality, randomSeed, DAY_NAMES } from '../lib/planner.js';
+import { generateWeek, regenerateDay, swapMeal, planQuality, randomSeed, batchPlan, planMode, weeklyIngredientLoad, PLAN_MODES, DAY_NAMES } from '../lib/planner.js';
 import { mealMacros, mealIngredients, shoppingList } from '../lib/nutrition.js';
 import { getMeal, mealsForSlot } from '../lib/registry.js';
 import { SLOT_META } from '../data/meals.js';
@@ -22,7 +22,7 @@ export function render(ctx) {
   const { state, targets, status } = ctx;
   const ws = viewWeek ?? weekStart(todayIso());
   const plan = state.plans[ws];
-  const isCurrent = ws === weekStart(todayIso());
+  const mode = plan ? planMode(plan) : (state.preferences.planMode ?? 'repeating');
 
   const weekLabel = `${fmt.dateShort(ws)} &ndash; ${fmt.dateShort(addDays(ws, 6))}`;
 
@@ -34,8 +34,12 @@ export function render(ctx) {
           <h3>No plan for this week</h3>
           <p class="small">Built around <b>${targets.kcal} kcal</b> and <b>${Math.round(targets.protein)}g protein</b> a day
           &mdash; your ${status.meta.label.toLowerCase()} targets.</p>
+          <p class="small muted">${raw(mode === 'repeating'
+            ? 'One menu, eaten every day this week.'
+            : 'A different menu each day.')}
+            <button class="btn btn--sm btn--ghost" data-go="setup">Change</button></p>
           <div class="btn-row" style="justify-content:center;margin-top:14px">
-            <button class="btn btn--primary" data-action="generate">Generate this week</button>
+            <button class="btn btn--primary" data-action="generate">${raw(mode === 'repeating' ? 'Build this week&rsquo;s menu' : 'Generate this week')}</button>
           </div>
           <p class="hint" style="margin-top:12px">Meals come from your library, weighted toward anything you have favourited.
           Nothing is locked &mdash; swap any meal you do not fancy and the portions re-fit around it.</p>
@@ -48,8 +52,24 @@ export function render(ctx) {
     ? plan.warnings.map((w) => `<div class="note note--warn small">${esc(w)}</div>`).join('') : '';
 
   const fibreNote = q.avgFibre > (targets.fibre + 12)
-    ? `<div class="note note--info small">This week averages about ${q.avgFibre}g of fibre a day, which is well above the ${targets.fibre}g target. That is good for satiety and blood sugar, but if it is a big jump from what you normally eat, ramp up over a week or two and drink more water &mdash; otherwise you will just feel bloated and blame the plan.</div>`
+    ? `<div class="note note--info small">This menu carries about ${q.avgFibre}g of fibre a day, well above the ${targets.fibre}g target. Good for satiety and blood sugar, but if it is a big jump from what you normally eat, ramp up over a week or two and drink more water &mdash; otherwise you will just feel bloated and blame the plan.</div>`
     : '';
+
+  const repeating = mode === 'repeating';
+
+  const stats = repeating
+    ? `<div class="grid grid--4">
+        <div class="stat stat--accent"><div class="stat__label">Calories a day</div><div class="stat__value">${q.avgKcal}</div><div class="stat__note">${fmt.signed(q.kcalDrift, 0, ' kcal')} vs target</div></div>
+        <div class="stat"><div class="stat__label">Protein a day</div><div class="stat__value">${q.avgProtein}<small>g</small></div><div class="stat__note">${fmt.signed(q.proteinDrift, 0, 'g')} vs target</div></div>
+        <div class="stat"><div class="stat__label">Fibre a day</div><div class="stat__value">${q.avgFibre}<small>g</small></div></div>
+        <div class="stat"><div class="stat__label">On target</div><div class="stat__value" style="font-size:1.15rem">${plan.days[0].score.onTarget ? 'Yes' : 'Close'}</div><div class="stat__note">${esc(plan.days[0].score.verdict)}</div></div>
+      </div>`
+    : `<div class="grid grid--4">
+        <div class="stat"><div class="stat__label">Days on target</div><div class="stat__value">${q.daysOnTarget}<small>/7</small></div></div>
+        <div class="stat"><div class="stat__label">Avg calories</div><div class="stat__value">${q.avgKcal}</div><div class="stat__note">${fmt.signed(q.kcalDrift, 0, ' kcal')} vs target</div></div>
+        <div class="stat"><div class="stat__label">Avg protein</div><div class="stat__value">${q.avgProtein}<small>g</small></div><div class="stat__note">${fmt.signed(q.proteinDrift, 0, 'g')} vs target</div></div>
+        <div class="stat"><div class="stat__label">Distinct meals</div><div class="stat__value">${q.distinctMeals}</div><div class="stat__note">across 7 days</div></div>
+      </div>`;
 
   return html`
     ${raw(weekNav(ws, weekLabel))}
@@ -58,30 +78,159 @@ export function render(ctx) {
       <div class="card__head">
         <div>
           <h2>${raw(weekLabel)}</h2>
-          <p class="card__sub">${status.meta.label} phase &middot; ${plan.targets.kcal} kcal &middot; ${Math.round(plan.targets.protein)}g protein target</p>
+          <p class="card__sub">${status.meta.label} phase &middot; ${plan.targets.kcal} kcal &middot; ${Math.round(plan.targets.protein)}g protein target
+          ${raw(repeating ? '&middot; one menu, every day' : '&middot; a different menu each day')}</p>
         </div>
         <div class="btn-row">
           <button class="btn btn--sm" data-action="shopping">${showShopping ? 'Hide' : 'Shopping'} list</button>
-          <button class="btn btn--sm" data-action="regenerate">New week</button>
+          <button class="btn btn--sm" data-action="regenerate">${raw(repeating ? 'New menu' : 'New week')}</button>
           <button class="btn btn--sm btn--ghost" data-action="print">Print</button>
         </div>
       </div>
 
-      <div class="grid grid--4">
-        <div class="stat"><div class="stat__label">Days on target</div><div class="stat__value">${q.daysOnTarget}<small>/7</small></div></div>
-        <div class="stat"><div class="stat__label">Avg calories</div><div class="stat__value">${q.avgKcal}</div><div class="stat__note">${fmt.signed(q.kcalDrift, 0, ' kcal')} vs target</div></div>
-        <div class="stat"><div class="stat__label">Avg protein</div><div class="stat__value">${q.avgProtein}<small>g</small></div><div class="stat__note">${fmt.signed(q.proteinDrift, 0, 'g')} vs target</div></div>
-        <div class="stat"><div class="stat__label">Distinct meals</div><div class="stat__value">${q.distinctMeals}</div><div class="stat__note">across 7 days</div></div>
-      </div>
-
+      ${raw(stats)}
       ${raw(warn)}
       ${raw(fibreNote)}
     </div>
 
+    ${raw(repeating ? menuCard(plan) : '')}
+    ${raw(repeating ? batchCard(plan) : '')}
     ${raw(showShopping ? shoppingCard(plan) : '')}
-
-    ${raw(plan.days.map((day, i) => dayCard(day, i, plan)).join(''))}
+    ${raw(repeating ? '' : plan.days.map((day, i) => dayCard(day, i, plan)).join(''))}
   `;
+}
+
+/** The single repeating menu, shown once rather than seven identical times. */
+function menuCard(plan) {
+  const day = plan.days[0];
+  const t = day.totals;
+
+  const rows = day.entries.map((e, slotIndex) => {
+    const meal = getMeal(e.mealId);
+    if (!meal) return '';
+    const m = mealMacros(meal, e.servings);
+    return `
+      <div class="meal-row">
+        <div class="meal-row__slot">${esc(SLOT_META[e.slot]?.label ?? e.slot)}</div>
+        <div class="meal-row__body">
+          <div class="meal-row__name">${esc(meal.name)}${e.servings !== 1 ? ` <span class="muted tiny">&times;${e.servings} portion</span>` : ''}</div>
+          <div class="meal-row__meta">${m.kcal} kcal &middot; ${m.protein.toFixed(0)}P / ${m.carbs.toFixed(0)}C / ${m.fat.toFixed(0)}F &middot; ${m.fibre.toFixed(0)}g fibre${meal.prepMin ? ` &middot; ${meal.prepMin} min` : ''}</div>
+        </div>
+        <div class="meal-row__actions">
+          <button class="btn btn--sm btn--ghost" data-recipe="${esc(e.mealId)}" data-servings="${e.servings}">Recipe</button>
+          <button class="btn btn--sm btn--ghost" data-swap="0:${slotIndex}">Swap</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+  <div class="day-card" style="border-color:var(--accent)">
+    <div class="day-card__head">
+      <div class="day-card__title">Your menu
+        <span class="day-card__date">every day, Monday to Sunday</span>
+      </div>
+      <div class="day-card__macros">
+        <span><b>${t.kcal}</b> kcal</span>
+        <span><b>${t.protein.toFixed(0)}</b>g P</span>
+        <span><b>${t.carbs.toFixed(0)}</b>g C</span>
+        <span><b>${t.fat.toFixed(0)}</b>g F</span>
+        <span><b>${t.fibre.toFixed(0)}</b>g fibre</span>
+      </div>
+    </div>
+    ${rows}
+    <div style="padding:13px 15px;border-top:1px solid var(--border)">
+      <p class="tiny muted mb0">Swapping a meal here changes it for the whole week &mdash; there is only one menu.</p>
+    </div>
+  </div>`;
+}
+
+/**
+ * The batch-cooking card. Eating the same menu daily only works if you cook it
+ * in bulk once, so this says exactly how much of each meal the week needs.
+ */
+function batchCard(plan) {
+  const batch = batchPlan(plan);
+  if (!batch) return '';
+
+  const rows = batch.map((b) => `
+    <tr>
+      <td>${esc(SLOT_META[b.slot]?.label ?? b.slot)}</td>
+      <td>${esc(b.name)}</td>
+      <td class="num">${fmtPortions(b.servingsPerDay)}</td>
+      <td class="num"><b>${fmtPortions(b.servingsPerWeek)}</b></td>
+      <td>${b.cookAhead ? '<span class="badge badge--good">cook ahead</span>' : b.batchFriendly ? '<span class="badge">quick daily</span>' : '<span class="badge badge--warn">best fresh</span>'}</td>
+    </tr>`).join('');
+
+  const cookAhead = batch.filter((b) => b.cookAhead);
+  const fresh = batch.filter((b) => !b.batchFriendly);
+
+  return `
+  <div class="card">
+    <div class="card__head">
+      <div><h2>Cooking for the week</h2>
+      <p class="card__sub">One menu means one cook-up. Here is how much of each to make.</p></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Slot</th><th>Meal</th><th class="num">Per day</th><th class="num">For the week</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <div class="note note--info small" style="margin-top:14px">
+      <b>How to read the week column.</b> It is the recipe multiplier, not a number of meals.
+      &ldquo;5&frac14; for the week&rdquo; means scale that recipe by 5.25 and divide it into 7 containers.
+      The shopping list already has the exact ingredient quantities for the whole week, so you do not
+      need to do that arithmetic yourself.
+    </div>
+
+    ${cookAhead.length ? `<div class="note note--good small"><b>Batch these on your prep day:</b> ${cookAhead.map((b) => esc(b.name)).join(', ')}.</div>` : ''}
+    ${fresh.length ? `<div class="note note--warn small"><b>Better made fresh each day:</b> ${fresh.map((b) => esc(b.name)).join(', ')}. If that does not suit your week, swap them for something tagged <i>batch-cook</i> or <i>make-ahead</i>.</div>` : ''}
+    ${dailyLoadNote(plan)}
+  </div>`;
+}
+
+/**
+ * What eating this menu daily actually adds up to.
+ *
+ * A 95g tin of tuna is unremarkable on one plate. Seven of them in a week is a
+ * different question, and it is a question only a repeating menu raises.
+ */
+function dailyLoadNote(plan) {
+  const out = [];
+
+  const fish = weeklyIngredientLoad(plan, { tag: 'fish' });
+  if (fish.length) {
+    const summary = fish.map((f) => `${esc(f.name)} (about ${Math.round(f.perWeek)}${esc(f.unit)})`).join(' and ');
+    out.push(`<div class="note note--info small">
+      <b>Fish every day.</b> Across the week this menu works out to ${summary}.
+      Fish is well worth eating, but guidance on how often depends heavily on the species, and it is
+      stricter if you are pregnant or planning to be. Rather than take a number from an app, check the
+      current advice from your own food safety authority &mdash; and if it turns out to be more than you
+      want, swap one of those meals for a non-fish option.
+    </div>`);
+  }
+
+  const heavy = weeklyIngredientLoad(plan).filter((i) => i.slots >= 2).slice(0, 4);
+  if (heavy.length) {
+    out.push(`<div class="note small">
+      <b>Appears in more than one meal a day:</b>
+      ${heavy.map((i) => `${esc(i.name)} &mdash; about ${Math.round(i.perWeek)}${i.per === 'unit' ? ` ${esc(i.unit)}${Math.round(i.perWeek) === 1 ? '' : 's'}` : esc(i.unit)} over the week`).join('; ')}.
+      Nothing wrong with that, but it is the kind of thing that gets tedious by Thursday. Swap a meal if any of it puts you off.
+    </div>`);
+  }
+
+  return out.join('');
+}
+
+/** 5.25 reads better as 5 1/4 when it is a recipe multiplier. */
+function fmtPortions(n) {
+  const whole = Math.floor(n);
+  const frac = Math.round((n - whole) * 100) / 100;
+  const glyph = { 0.25: '&frac14;', 0.5: '&frac12;', 0.75: '&frac34;' }[frac];
+  if (!glyph) return String(Math.round(n * 100) / 100);
+  return whole ? `${whole}${glyph}` : glyph;
 }
 
 function weekNav(ws, label) {
@@ -250,11 +399,12 @@ export function buildPrefs(state, ws) {
   return prefs;
 }
 
-export function showRecipe(mealId, servings = 1) {
+export function showRecipe(mealId, servings = 1, { weekly = false } = {}) {
   const meal = getMeal(mealId);
   if (!meal) return;
-  const m = mealMacros(meal, servings);
-  const ings = mealIngredients(meal, servings);
+  const multiplier = weekly ? servings * 7 : servings;
+  const m = mealMacros(meal, multiplier);
+  const ings = mealIngredients(meal, multiplier);
 
   const ingList = ings.length
     ? `<ul style="list-style:none;padding:0;margin:0 0 14px">
@@ -272,8 +422,13 @@ export function showRecipe(mealId, servings = 1) {
       <div class="badge-row" style="margin-bottom:12px">
         <span class="badge">${SLOT_META[meal.slot]?.label ?? meal.slot}</span>
         ${raw(meal.prepMin ? `<span class="badge">${meal.prepMin} min</span>` : '')}
-        ${raw(servings !== 1 ? `<span class="badge badge--accent">${servings}&times; portion</span>` : '')}
+        ${raw(multiplier !== 1 ? `<span class="badge badge--accent">${Math.round(multiplier * 100) / 100}&times; recipe</span>` : '')}
         ${raw((meal.tags ?? []).slice(0, 4).map((t) => `<span class="badge">${esc(t)}</span>`).join(''))}
+      </div>
+
+      <div class="seg" role="group" aria-label="Quantity" style="margin-bottom:14px">
+        <button data-scope="one" aria-pressed="${!weekly}">One meal</button>
+        <button data-scope="week" aria-pressed="${weekly}">Whole week (&times;7)</button>
       </div>
 
       <div class="grid grid--4" style="margin-bottom:16px">
@@ -290,8 +445,13 @@ export function showRecipe(mealId, servings = 1) {
       <p class="small">${meal.method}</p>
 
       ${raw(meal.note ? `<div class="note note--info small">${esc(meal.note)}</div>` : '')}
-      ${raw(m.fibre ? `<p class="tiny muted">${m.fibre.toFixed(0)}g fibre in this portion.</p>` : '')}
+      ${raw(m.fibre ? `<p class="tiny muted">${m.fibre.toFixed(0)}g fibre${weekly ? ' across the week' : ' in this portion'}.</p>` : '')}
+      ${raw(weekly ? '<div class="note note--info small">These are the quantities for the whole week, ready to cook in one go and divide into seven. The macros shown are the weekly totals, not one meal.</div>' : '')}
     `,
+    onMount(el) {
+      el.querySelectorAll('[data-scope]').forEach((b) =>
+        b.addEventListener('click', () => showRecipe(mealId, servings, { weekly: b.dataset.scope === 'week' })));
+    },
   });
 }
 

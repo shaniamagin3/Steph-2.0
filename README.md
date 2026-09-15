@@ -25,7 +25,7 @@ Or open `index.html` through any static file server. It also deploys to GitHub
 Pages, Netlify or similar as-is, with nothing to configure.
 
 ```bash
-npm test           # 121 tests, no dependencies
+npm test           # 151 tests, no dependencies
 ```
 
 > Opening `index.html` directly as a `file://` URL will not work — browsers
@@ -55,9 +55,24 @@ ask for — it raises the target to the floor and tells you it did.
 
 ### Meal plans that hit your numbers
 
-Seven days × five eating occasions — breakfast, lunch, two snacks, dinner and
-dessert — generated to land on your calorie target while clearing your protein
-target.
+Five eating occasions a day — breakfast, lunch, two snacks, dinner and dessert —
+generated to land on your calorie target while clearing your protein target.
+
+Two structures, set on the Setup tab:
+
+- **Same meals every day** (the default) — one menu, eaten Monday to Sunday.
+  Shop once, cook once, stop deciding. It also makes your intake more accurate:
+  the same menu weighed the same way every day has none of the drift that creeps
+  in across seven different ones.
+- **Different meals each day** — a new menu daily, if you would rather have the
+  variety and do the extra cooking.
+
+Because a repeating menu gets eaten seven times, that mode searches much harder
+for a good one, favours meals that batch-cook and reheat well, and refuses to
+build two slots of the same day on the same main protein source — tuna at lunch
+and tuna again at snack is fourteen tins across the week, not two. It also shows
+you what the week actually adds up to for anything appearing in more than one
+meal a day.
 
 - **71 meals built in**, every one of them protein-forward, fibre-forward, and
   biased toward slower-digesting carbohydrate sources.
@@ -71,18 +86,22 @@ target.
 - **Swap** any meal and the rest of the day re-fits around it automatically.
 - **Shopping list** aggregated across the week, grouped by supermarket aisle
   and rounded up to quantities you can actually buy.
+- **Batch-cooking table** in repeating mode: how much of each meal the week
+  needs, which ones to cook ahead, and which are better made fresh. Any recipe
+  can be viewed at one-portion or whole-week quantities.
 - Dessert is planned in every day on purpose. A plan that forbids dessert is a
   plan you abandon in week three.
 
 ### Daily check-in
 
-A morning weigh-in plus the six habits:
+A morning weigh-in plus the seven habits:
 
 | | |
 |---|---|
 | 😴 | Slept 7–8 hours |
 | 💬 | Affirmations |
 | 🍽️ | Stuck to the meal plan — yes / mostly / no |
+| 💧 | Drank 2L of water — with +0.25L / +0.5L tap buttons, since water is the one habit you log in pieces through the day |
 | 👟 | Steps, 5–8k |
 | 📓 | Journaled |
 | 🧘 | Neck exercises |
@@ -190,7 +209,7 @@ src/
     ingredients.js       ~100 ingredients with reference macros
     meals.js             71 meals defined as ingredients and quantities
   views/                 one module per tab
-tests/                   121 tests, run with node --test
+tests/                   151 tests, run with node --test
 docs/NUTRITION.md        the reasoning behind every number
 ```
 
@@ -201,7 +220,10 @@ docs/NUTRITION.md        the reasoning behind every number
   what makes portion scaling arithmetically correct and guarantees the shopping
   list matches the plan.
 - **Plan generation is seeded.** The same seed reproduces a plan exactly, so
-  "give me a different week" is just a new seed, and the generator is testable.
+  "give me a different menu" is just a new seed, and the generator is testable.
+- **A repeating plan still stores seven days**, all identical, plus the menu
+  itself. Keeping the shape uniform means the shopping list, day totals and the
+  Today view need no special cases.
 - **Pure logic modules touch no DOM**, so they run directly under `node --test`.
 - **Chart colours come from a validated categorical palette** with separately
   chosen light and dark steps, rather than being picked by eye.

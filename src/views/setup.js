@@ -10,6 +10,7 @@ import { ACTIVITY_LEVELS, computeTargets, projectedWeeklyChangeKg } from '../lib
 import { buildProgram, programStatus } from '../lib/program.js';
 import { averageCycleLength } from '../lib/cycle.js';
 import { allTags } from '../data/meals.js';
+import { PLAN_MODES } from '../lib/planner.js';
 import * as store from '../lib/store.js';
 import { todayIso } from '../lib/cycle.js';
 
@@ -174,6 +175,28 @@ export function render(ctx) {
         <p class="card__sub">Shapes every plan the generator builds.</p></div>
       </div>
 
+      <div class="field">
+        <label>How do you want the week structured?</label>
+        <div class="seg" role="group" aria-label="Plan structure">
+          ${raw(Object.values(PLAN_MODES).map((m) =>
+            `<button data-plan-mode="${m.key}" aria-pressed="${(state.preferences.planMode ?? 'repeating') === m.key}">${esc(m.label)}</button>`).join(''))}
+        </div>
+        <p class="hint">${esc(PLAN_MODES[state.preferences.planMode ?? 'repeating'].hint)}</p>
+      </div>
+
+      ${raw((state.preferences.planMode ?? 'repeating') === 'repeating' ? `
+      <div class="note note--info small">
+        <b>Eating the same thing every day is a legitimate strategy, not a compromise.</b>
+        It removes a few hundred food decisions a week, makes the shopping list trivial, and makes your
+        intake far more accurate &mdash; the same menu weighed the same way every day has none of the drift
+        that creeps in across seven different ones.
+        <br><br>
+        The two things to watch: pick meals you are genuinely happy to repeat, because a meal you are
+        lukewarm about gets eaten seven times; and change the menu week to week so the variety happens
+        across weeks instead of within them. The generator already avoids leaning on the same ingredient
+        in three different slots for exactly this reason.
+      </div>` : '')}
+
       <div class="field-row">
         <div class="field">
           <label for="pf-snacks">Snacks per day</label>
@@ -318,6 +341,13 @@ export function afterRender(root, ctx) {
 
   root.querySelectorAll('[data-pf-bool]').forEach((el) =>
     el.addEventListener('change', () => { store.update((s) => { s.preferences[el.dataset.pfBool] = el.checked; }); }));
+
+  root.querySelectorAll('[data-plan-mode]').forEach((el) =>
+    el.addEventListener('click', () => {
+      store.update((st) => { st.preferences.planMode = el.dataset.planMode; });
+      toast(el.dataset.planMode === 'repeating' ? 'One menu a week' : 'A new menu each day');
+      rerender();
+    }));
 
   root.querySelectorAll('[data-require]').forEach((el) =>
     el.addEventListener('click', () => {

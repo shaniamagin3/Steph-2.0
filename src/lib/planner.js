@@ -1,23 +1,36 @@
 /**
  * Weekly meal plan generation.
  *
- * The problem: fill 7 days x 5 eating occasions so each day lands on a calorie
- * target while clearing a protein target, respecting what you will actually eat,
- * and without serving you the same three dinners forever.
+ * Two modes, because people eat in two different ways:
  *
- * The approach: for each day, propose a number of candidate compositions, scale
- * portions to fit the calorie budget, score each against the targets, and keep
- * the best. This is a small stochastic search rather than an exact solver,
- * because the constraint that matters most - "would you actually eat this?" -
- * is not something an exact solver can optimise for anyway.
+ *   'repeating' (default) - ONE menu, eaten every day of the week. This is how
+ *       a lot of people who actually stay on plan eat: decide once, shop once,
+ *       cook in batches, and remove the daily decision entirely. It also makes
+ *       the plan far more accurate, because the same menu weighed the same way
+ *       every day has none of the drift that comes from seven different days.
+ *
+ *   'varied' - a different menu each day, for anyone who would rather have the
+ *       variety and is willing to do the extra cooking.
+ *
+ * In repeating mode the stakes per choice are much higher: a meal you are
+ * lukewarm about gets eaten seven times, not once. So that mode searches far
+ * harder, rewards meals that batch-cook and reheat well, and actively penalises
+ * a menu that leans on the same ingredient in three different slots.
+ *
+ * The approach either way: propose candidate day compositions, scale portions to
+ * fit the calorie budget, score against the targets, keep the best. A small
+ * stochastic search rather than an exact solver, because the constraint that
+ * matters most - "would you actually eat this?" - is not something an exact
+ * solver can optimise for anyway.
  *
  * Generation is seeded, so the same seed always reproduces the same plan and
- * "give me a different week" is just a new seed.
+ * "give me a different menu" is just a new seed.
  */
 
 import { SLOT_META } from '../data/meals.js';
+import { getIngredient } from '../data/ingredients.js';
 import { allMeals, getMeal } from './registry.js';
-import { mealMacrosRaw, dayTotals, scoreDay } from './nutrition.js';
+import { mealMacrosRaw, lineMacros, dayTotals, scoreDay } from './nutrition.js';
 import { addDays, weekStart } from './cycle.js';
 
 export const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -55,9 +68,24 @@ const nearestStep = (v, steps) => steps.reduce((best, s) => (Math.abs(s - v) < M
  * @property {boolean}  dessertDaily    include a dessert every day
  * @property {number}   maxPrepMin      cap on prep time for weekday dinners, 0 = no cap
  * @property {Record<string,string[]>} pinned  { 'Monday': ['din-garlic-chicken-veg'] } from the weekly check-in
+ * @property {'repeating'|'varied'} planMode  one menu all week, or a new one daily
  */
 
+export const PLAN_MODES = {
+  repeating: {
+    key: 'repeating',
+    label: 'Same meals every day',
+    hint: 'One menu, repeated Monday to Sunday. Shop once, cook in batches, stop deciding.',
+  },
+  varied: {
+    key: 'varied',
+    label: 'Different meals each day',
+    hint: 'A new menu every day. More variety, more cooking, more shopping.',
+  },
+};
+
 export const DEFAULT_PREFERENCES = {
+  planMode: 'repeating',
   favourites: [],
   excluded: [],
   requireTags: [],
@@ -195,10 +223,111 @@ function fitServings(entries, targets) {
 }
 
 /**
+ * How much does this menu lean on the same few ingredients?
+ *
+ * Only matters for a repeating menu. Three meals a day built on Greek yoghurt
+ * is fine for one day and unbearable by Thursday, and it is the single most
+ * common way a "same thing every day" plan gets abandoned. Flavourings are
+ * ignored - garlic in everything is not the problem.
+ */
+function ingredientRepetition(entries) {
+  const counts = new Map();
+  const anchorCounts = new Map();
+
+  for (const e of entries) {
+    const meal = getMeal(e.mealId);
+    if (!meal?.items?.length) continue;
+
+    const anchors = anchorProteins(meal);
+    const seen = new Set();
+    for (const [id] of meal.items) {
+      if (seen.has(id)) continue;
+      let ing;
+      try { ing = getIngredient(id); } catch { continue; }
+      if (ing.negligible) continue;
+      seen.add(id);
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+      if (anchors.has(id)) anchorCounts.set(id, (anchorCounts.get(id) ?? 0) + 1);
+    }
+  }
+
+  let penalty = 0;
+  for (const n of counts.values()) {
+    if (n >= 3) penalty += (n - 2) * 1.2;  // in three or more slots of the same day
+  }
+  // A main protein source repeating across slots is worse than a shared
+  // vegetable: on a repeating menu, tuna at lunch and tuna at snack is
+  // fourteen tins over the week, not two.
+  for (const n of anchorCounts.values()) {
+    if (n >= 2) penalty += (n - 1) * 2.0;
+  }
+  return penalty;
+}
+
+/** Ingredients supplying at least a quarter of a meal's protein. */
+export function anchorProteins(meal) {
+  const anchors = new Set();
+  if (!meal?.items?.length) return anchors;
+
+  const lines = meal.items.map(([id, qty]) => {
+    try { return { id, protein: lineMacros(id, qty).protein }; } catch { return { id, protein: 0 }; }
+  });
+  const total = lines.reduce((a, l) => a + l.protein, 0);
+  if (total <= 0) return anchors;
+
+  for (const l of lines) if (l.protein / total >= 0.25) anchors.add(l.id);
+  return anchors;
+}
+
+/**
+ * Ingredients this menu serves every single day, and how much of them the week
+ * adds up to. Only meaningful for a repeating menu, where a portion that looks
+ * unremarkable on one plate becomes seven of them.
+ */
+export function weeklyIngredientLoad(plan, { tag } = {}) {
+  if (planMode(plan) !== 'repeating') return [];
+  const entries = plan.menu?.entries ?? plan.days[0]?.entries ?? [];
+
+  const totals = new Map();
+  for (const e of entries) {
+    const meal = getMeal(e.mealId);
+    if (!meal?.items?.length) continue;
+    for (const [id, qty] of meal.items) {
+      let ing;
+      try { ing = getIngredient(id); } catch { continue; }
+      if (ing.negligible) continue;
+      if (tag && !(ing.tags ?? []).includes(tag)) continue;
+      const prev = totals.get(id) ?? { id, name: ing.name, unit: ing.unit, per: ing.per, slots: 0, perDay: 0 };
+      prev.slots += 1;
+      prev.perDay += qty * e.servings;
+      totals.set(id, prev);
+    }
+  }
+
+  return [...totals.values()].map((t) => ({
+    ...t,
+    perDay: Math.round(t.perDay * 10) / 10,
+    perWeek: Math.round(t.perDay * 7 * 10) / 10,
+  })).sort((a, b) => b.perWeek - a.perWeek);
+}
+
+/** Meals that survive being cooked ahead and reheated all week. */
+const BATCH_TAGS = ['batch-cook', 'meal-prep', 'make-ahead', 'no-cook', 'quick', 'freezer'];
+
+function batchFriendliness(entries) {
+  let score = 0;
+  for (const e of entries) {
+    const tags = getMeal(e.mealId)?.tags ?? [];
+    if (tags.some((t) => BATCH_TAGS.includes(t))) score += 1;
+  }
+  return score / Math.max(1, entries.length);
+}
+
+/**
  * Score a candidate day. Lower is better.
  * Calories and protein dominate; fibre, variety and favourites are tie-breakers.
  */
-function scoreCandidate(entries, targets, recentIds, favourites) {
+function scoreCandidate(entries, targets, recentIds, favourites, { repeating = false } = {}) {
   const totals = dayTotals({ entries });
 
   const kcalErr = Math.abs(totals.kcal - targets.kcal) / Math.max(1, targets.kcal);
@@ -210,7 +339,7 @@ function scoreCandidate(entries, targets, recentIds, favourites) {
   const repeats = entries.filter((e) => recentIds.includes(e.mealId)).length;
   const favs = entries.filter((e) => favourites.includes(e.mealId)).length;
 
-  return (
+  let score = (
     kcalErr * 10 +
     proteinShort * 14 +
     proteinOver * 3 +
@@ -219,6 +348,15 @@ function scoreCandidate(entries, targets, recentIds, favourites) {
     repeats * 0.9 -
     favs * 0.7
   );
+
+  if (repeating) {
+    // You will eat this menu seven times. Ingredient monotony and awkward
+    // cooking matter far more here than they do for a one-off day.
+    score += ingredientRepetition(entries);
+    score -= batchFriendliness(entries) * 1.5;
+  }
+
+  return score;
 }
 
 /**
@@ -231,7 +369,7 @@ function scoreCandidate(entries, targets, recentIds, favourites) {
  * @param {function} p.rand
  * @param {number} [p.attempts=140]
  */
-export function generateDay({ targets, prefs, recentIds = [], pinnedIds = [], rand, attempts = 140 }) {
+export function generateDay({ targets, prefs, recentIds = [], pinnedIds = [], rand, attempts = 140, repeating = false }) {
   const p = { ...DEFAULT_PREFERENCES, ...prefs };
   const budgets = slotBudgets(targets.kcal, p);
   const pools = Object.fromEntries(['breakfast', 'lunch', 'dinner', 'snack', 'dessert'].map((s) => [s, candidatePool(s, p)]));
@@ -265,7 +403,7 @@ export function generateDay({ targets, prefs, recentIds = [], pinnedIds = [], ra
     });
 
     const fitted = fitServings(proposal, targets);
-    const score = scoreCandidate(fitted, targets, recentIds, p.favourites);
+    const score = scoreCandidate(fitted, targets, recentIds, p.favourites, { repeating });
     if (score < bestScore) { bestScore = score; best = fitted; }
   }
 
@@ -283,10 +421,48 @@ export function generateDay({ targets, prefs, recentIds = [], pinnedIds = [], ra
  * @param {number} [p.seed]
  * @returns {{seed:number, startDate:string, days:object[], warnings:string[]}}
  */
-export function generateWeek({ targets, prefs = {}, startDate, seed = randomSeed(), phase = 'maintenance' }) {
+export function generateWeek({ targets, prefs = {}, startDate, seed = randomSeed(), phase = 'maintenance', mode }) {
   const p = { ...DEFAULT_PREFERENCES, ...prefs };
+  const planMode = mode ?? p.planMode ?? 'repeating';
   const rand = rng(seed);
   const start = weekStart(startDate ?? new Date().toISOString().slice(0, 10));
+
+  const base = {
+    seed,
+    startDate: start,
+    phase,
+    targets,
+    mode: planMode,
+    generatedAt: new Date().toISOString(),
+    warnings: poolWarnings(p),
+  };
+
+  if (planMode === 'repeating') {
+    // One menu for the whole week. Because it is a single search rather than
+    // seven, we can afford to look far harder for a good one - and we should,
+    // since every choice gets eaten seven times.
+    const pinnedIds = [...new Set(Object.values(p.pinned ?? {}).flat())];
+
+    const menu = generateDay({
+      targets,
+      prefs: p,
+      recentIds: [],
+      pinnedIds,
+      rand,
+      attempts: 900,
+      repeating: true,
+    });
+
+    const days = Array.from({ length: 7 }, (_, i) => ({
+      date: addDays(start, i),
+      dayName: DAY_NAMES[i],
+      entries: menu.entries.map((e) => ({ ...e })),
+      totals: menu.totals,
+      score: menu.score,
+    }));
+
+    return { ...base, menu: { entries: menu.entries, totals: menu.totals, score: menu.score }, days };
+  }
 
   const days = [];
   const recent = [];
@@ -308,15 +484,12 @@ export function generateWeek({ targets, prefs = {}, startDate, seed = randomSeed
     recent.push(...day.entries.map((e) => e.mealId));
   }
 
-  return {
-    seed,
-    startDate: start,
-    phase,
-    targets,
-    generatedAt: new Date().toISOString(),
-    days,
-    warnings: poolWarnings(p),
-  };
+  return { ...base, days };
+}
+
+/** A plan with no `mode` predates the setting and was a varied week. */
+export function planMode(plan) {
+  return plan?.mode ?? 'varied';
 }
 
 /**
@@ -326,22 +499,50 @@ export function generateWeek({ targets, prefs = {}, startDate, seed = randomSeed
 export function swapMeal(plan, dayIndex, slotIndex, newMealId) {
   const next = structuredClone(plan);
   const day = next.days[dayIndex];
-  const entry = day.entries[slotIndex];
+  const entry = day?.entries[slotIndex];
   if (!entry) throw new RangeError('swapMeal: no entry at that position');
 
   entry.mealId = newMealId;
 
-  const budgets = slotBudgets(next.targets.kcal, { snacksPerDay: day.entries.filter((e) => e.slot === 'snack').length, dessertDaily: day.entries.some((e) => e.slot === 'dessert') });
+  const budgets = slotBudgets(next.targets.kcal, {
+    snacksPerDay: day.entries.filter((e) => e.slot === 'snack').length,
+    dessertDaily: day.entries.some((e) => e.slot === 'dessert'),
+  });
   const withBudgets = day.entries.map((e, i) => ({ ...e, budgetKcal: budgets[i]?.kcal ?? next.targets.kcal / day.entries.length }));
 
   day.entries = fitServings(withBudgets, next.targets);
   day.totals = dayTotals({ entries: day.entries });
   day.score = scoreDay(day.totals, next.targets);
+
+  // With one repeating menu there is only ever one thing to change, so a swap
+  // applies to the whole week rather than to a single day.
+  if (planMode(next) === 'repeating') {
+    next.menu = { entries: day.entries.map((e) => ({ ...e })), totals: day.totals, score: day.score };
+    next.days = next.days.map((d) => ({
+      ...d,
+      entries: day.entries.map((e) => ({ ...e })),
+      totals: day.totals,
+      score: day.score,
+    }));
+  }
+
   return next;
 }
 
 /** Regenerate a single day, leaving the rest of the week alone. */
 export function regenerateDay(plan, dayIndex, prefs, seed = randomSeed()) {
+  // A repeating plan has one menu, so "reroll this day" means reroll the menu.
+  if (planMode(plan) === 'repeating') {
+    return generateWeek({
+      targets: plan.targets,
+      prefs,
+      startDate: plan.startDate,
+      seed,
+      phase: plan.phase,
+      mode: 'repeating',
+    });
+  }
+
   const next = structuredClone(plan);
   const rand = rng(seed);
   const recent = next.days.flatMap((d, i) => (i === dayIndex ? [] : d.entries.map((e) => e.mealId)));
@@ -361,6 +562,7 @@ export function regenerateDay(plan, dayIndex, prefs, seed = randomSeed()) {
 
 /** A quick read on how well the whole week fits. */
 export function planQuality(plan) {
+  const repeating = planMode(plan) === 'repeating';
   const onTarget = plan.days.filter((d) => d.score.onTarget).length;
   const avgKcal = Math.round(plan.days.reduce((a, d) => a + d.totals.kcal, 0) / plan.days.length);
   const avgProtein = Math.round(plan.days.reduce((a, d) => a + d.totals.protein, 0) / plan.days.length);
@@ -368,6 +570,7 @@ export function planQuality(plan) {
   const distinct = new Set(plan.days.flatMap((d) => d.entries.map((e) => e.mealId))).size;
 
   return {
+    repeating,
     daysOnTarget: onTarget,
     avgKcal,
     avgProtein,
@@ -375,5 +578,31 @@ export function planQuality(plan) {
     distinctMeals: distinct,
     kcalDrift: avgKcal - plan.targets.kcal,
     proteinDrift: avgProtein - plan.targets.protein,
+    /** In repeating mode, how many portions of each meal the week needs. */
+    portionsPerMeal: repeating ? 7 : null,
   };
+}
+
+/**
+ * For a repeating plan: what to cook, and how much of it, to cover the week.
+ * This is the batch-cooking list - the thing that makes eating the same menu
+ * every day actually workable.
+ */
+export function batchPlan(plan) {
+  if (planMode(plan) !== 'repeating') return null;
+  const entries = plan.menu?.entries ?? plan.days[0]?.entries ?? [];
+
+  return entries.map((e) => {
+    const meal = getMeal(e.mealId);
+    return {
+      slot: e.slot,
+      mealId: e.mealId,
+      name: meal?.name ?? e.mealId,
+      servingsPerDay: e.servings,
+      servingsPerWeek: Math.round(e.servings * 7 * 100) / 100,
+      prepMin: meal?.prepMin ?? null,
+      batchFriendly: (meal?.tags ?? []).some((t) => BATCH_TAGS.includes(t)),
+      cookAhead: (meal?.tags ?? []).some((t) => ['batch-cook', 'meal-prep', 'make-ahead', 'freezer'].includes(t)),
+    };
+  });
 }

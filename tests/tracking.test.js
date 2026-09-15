@@ -70,7 +70,7 @@ describe('dailyScore', () => {
   });
 
   test('a perfect day scores 100%', () => {
-    const s = dailyScore({ sleep: 7.5, affirmations: true, mealPlan: 'yes', steps: 7000, journaled: true, neckExercises: true });
+    const s = dailyScore({ sleep: 7.5, affirmations: true, mealPlan: 'yes', water: 2, steps: 7000, journaled: true, neckExercises: true });
     assert.equal(s.score, 1);
     assert.equal(s.hit, HABITS.length);
     assert.equal(s.complete, true);
@@ -105,7 +105,7 @@ describe('streaks', () => {
 describe('weeklyAdherence', () => {
   test('reports per-habit percentages', () => {
     const days = makeDays('2026-09-20', 7, (i) => ({
-      sleep: i < 5 ? 7.5 : 6, affirmations: true, mealPlan: 'yes',
+      sleep: i < 5 ? 7.5 : 6, affirmations: true, mealPlan: 'yes', water: 2.25,
       steps: 6000, journaled: i % 2 === 0, neckExercises: true,
     }));
     const a = weeklyAdherence(days, '2026-09-14');
@@ -329,5 +329,56 @@ describe('weeklyInsights', () => {
       phase: 'deficit', cycle: { phase: PHASES.luteal },
     });
     assert.ok(notes.some((n) => /luteal/i.test(n.text)));
+  });
+});
+
+
+describe('water habit', () => {
+  const water = HABITS.find((h) => h.key === 'water');
+
+  test('is part of the daily habit set', () => {
+    assert.ok(water, 'water habit is missing');
+    assert.equal(water.targetMin, 2);
+    assert.equal(water.unit, 'L');
+  });
+
+  test('2L or more counts as hit', () => {
+    assert.equal(habitResult(water, { water: 2 }), 1);
+    assert.equal(habitResult(water, { water: 3.5 }), 1);
+  });
+
+  test('gives partial credit below target', () => {
+    assert.equal(habitResult(water, { water: 1 }), 0.5);
+    const low = habitResult(water, { water: 0.5 });
+    assert.ok(low > 0 && low < 0.5);
+  });
+
+  test('unlogged is null, not zero', () => {
+    assert.equal(habitResult(water, { water: null }), null);
+    assert.equal(habitResult(water, {}), null);
+  });
+
+  test('offers quick-add amounts, since water is logged in pieces', () => {
+    assert.ok(Array.isArray(water.quickAdd) && water.quickAdd.length > 0);
+  });
+
+  test('a blank daily entry includes the water field', () => {
+    assert.ok('water' in emptyDaily('2026-09-15'));
+  });
+
+  test('weekly insights flag persistently low water', () => {
+    const notes = weeklyInsights({
+      adherence: { daysLogged: 7, perHabit: [{ key: 'water', pct: 40, daysHit: 2, daysLogged: 7 }] },
+      trend: { kgPerWeek: null }, phase: 'deficit',
+    });
+    assert.ok(notes.some((n) => /[Ww]ater/.test(n.text)));
+  });
+
+  test('does not nag when water is fine', () => {
+    const notes = weeklyInsights({
+      adherence: { daysLogged: 7, perHabit: [{ key: 'water', pct: 95, daysHit: 7, daysLogged: 7 }] },
+      trend: { kgPerWeek: null }, phase: 'deficit',
+    });
+    assert.ok(!notes.some((n) => /[Ww]ater/.test(n.text)));
   });
 });
