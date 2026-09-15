@@ -98,13 +98,14 @@ export function proteinBasisKg(weightKg, heightCm) {
  * @param {number} [p.deficitPct]    fraction below maintenance, e.g. 0.18
  * @returns {{kcal:number, requested:number, floored:boolean, floorReason:string|null, effectiveDeficitPct:number}}
  */
-export function calorieTarget({ tdee: maintenance, bmr, phase, deficitPct = 0.18 }) {
+export function calorieTarget({ tdee: maintenance, bmr, phase, deficitPct = 0.18, minKcal = null }) {
   if (phase === 'maintenance') {
     return {
       kcal: round(maintenance),
       requested: round(maintenance),
       floored: false,
       floorReason: null,
+      belowBmr: false,
       effectiveDeficitPct: 0,
     };
   }
@@ -112,29 +113,37 @@ export function calorieTarget({ tdee: maintenance, bmr, phase, deficitPct = 0.18
   const pct = clamp(deficitPct, SAFETY.minDeficitPct, SAFETY.maxDeficitPct);
   const requested = round(maintenance * (1 - pct));
 
-  const floors = [SAFETY.minDailyKcal];
-  if (SAFETY.neverBelowBmr) floors.push(bmr);
-  const floor = Math.max(...floors);
+  // A floor you have set yourself, from your own history, beats the equation's
+  // guess at your BMR. You know what you have actually eaten; Mifflin-St Jeor
+  // does not. The absolute floor still applies, and going under your estimated
+  // BMR is still flagged - it is just flagged rather than silently overridden.
+  const userFloor = minKcal != null && minKcal >= SAFETY.minDailyKcal ? round(minKcal) : null;
+  const hardFloor = SAFETY.minDailyKcal;
+  const bmrFloor = SAFETY.neverBelowBmr && userFloor == null ? bmr : 0;
+  const floor = Math.max(hardFloor, bmrFloor, userFloor ?? 0);
 
-  if (requested < floor) {
-    const kcal = round(floor);
-    return {
-      kcal,
-      requested,
-      floored: true,
-      floorReason: floor === bmr
-        ? `A ${Math.round(pct * 100)}% deficit would land below your estimated BMR (${bmr} kcal). Raised to BMR.`
-        : `A ${Math.round(pct * 100)}% deficit would land below ${SAFETY.minDailyKcal} kcal. Raised to the floor.`,
-      effectiveDeficitPct: round(1 - kcal / maintenance, 3),
-    };
+  const kcal = requested < floor ? round(floor) : requested;
+  const floored = requested < floor;
+
+  let floorReason = null;
+  if (floored) {
+    if (userFloor != null && floor === userFloor) {
+      floorReason = `A ${Math.round(pct * 100)}% deficit works out at ${requested} kcal, below the ${userFloor} kcal floor you set. Raised to your floor.`;
+    } else if (floor === bmr) {
+      floorReason = `A ${Math.round(pct * 100)}% deficit would land below your estimated BMR (${bmr} kcal). Raised to BMR.`;
+    } else {
+      floorReason = `A ${Math.round(pct * 100)}% deficit would land below ${SAFETY.minDailyKcal} kcal. Raised to the floor.`;
+    }
   }
 
   return {
-    kcal: requested,
+    kcal,
     requested,
-    floored: false,
-    floorReason: null,
-    effectiveDeficitPct: round(pct, 3),
+    floored,
+    floorReason,
+    belowBmr: kcal < bmr,
+    userFloor,
+    effectiveDeficitPct: round(1 - kcal / maintenance, 3),
   };
 }
 
@@ -203,8 +212,18 @@ export function kcalFromMacros({ protein = 0, carbs = 0, fat = 0 }) {
  */
 export function computeTargets(profile, phase, deficitPct) {
   const bmr = bmrMifflinStJeor(profile);
-  const maintenance = tdee(bmr, profile.activityKey);
-  const cal = calorieTarget({ tdee: maintenance, bmr, phase, deficitPct });
+  const predicted = tdee(bmr, profile.activityKey);
+
+  // If you already know your maintenance from experience, that beats the
+  // equation. The equation is a population prediction; your own history of
+  // eating a known intake and watching the scale is a measurement.
+  const known = Number(profile.knownMaintenanceKcal) || null;
+  const maintenance = known ?? predicted;
+
+  const cal = calorieTarget({
+    tdee: maintenance, bmr, phase, deficitPct,
+    minKcal: Number(profile.minKcal) || null,
+  });
   const macros = macroTargets({
     kcal: cal.kcal,
     weightKg: profile.weightKg,
@@ -212,14 +231,25 @@ export function computeTargets(profile, phase, deficitPct) {
     proteinGPerKg: profile.proteinGPerKg,
     fatPctOfKcal: profile.fatPctOfKcal,
   });
+  const warnings = [...macros.warnings];
+  if (cal.floorReason) warnings.push(cal.floorReason);
+  if (cal.belowBmr) {
+    warnings.push(`This target (${cal.kcal} kcal) is below your estimated BMR of ${bmr} kcal. That estimate comes from a population equation and can be out by a few hundred calories either way, so it is not automatically wrong - but it is worth knowing. If energy, sleep, training or your cycle start suffering, eat more rather than pushing through.`);
+  }
+  if (known && Math.abs(known - predicted) > predicted * 0.12) {
+    warnings.push(`Your stated maintenance (${known} kcal) differs from the equation's prediction (${predicted} kcal) by more than 12%. Yours is being used, which is right if it came from actually tracking. If it was a guess, the maintenance block will settle it.`);
+  }
+
   return {
     bmr,
     maintenance,
+    predictedMaintenance: predicted,
+    usingKnownMaintenance: !!known,
     phase,
     bmi: bmi(profile.weightKg, profile.heightCm),
     ...cal,
     ...macros,
-    warnings: [...macros.warnings, ...(cal.floorReason ? [cal.floorReason] : [])],
+    warnings,
   };
 }
 

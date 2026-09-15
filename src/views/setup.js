@@ -10,7 +10,10 @@ import { ACTIVITY_LEVELS, computeTargets, projectedWeeklyChangeKg } from '../lib
 import { buildProgram, programStatus } from '../lib/program.js';
 import { averageCycleLength } from '../lib/cycle.js';
 import { allTags } from '../data/meals.js';
-import { PLAN_MODES } from '../lib/planner.js';
+import { PLAN_MODES, DAY_NAMES } from '../lib/planner.js';
+import { RESTRICTIONS } from '../lib/diet.js';
+import { INGREDIENTS } from '../data/ingredients.js';
+import { SLOTS, SLOT_META } from '../data/meals.js';
 import * as store from '../lib/store.js';
 import { todayIso } from '../lib/cycle.js';
 
@@ -70,9 +73,112 @@ export function render(ctx) {
         <p class="hint">Most people overestimate this. If you are aiming at 5&ndash;8k steps and training a few times a week,
         <b>lightly active</b> is usually the honest answer.</p>
       </div>
+
+      <h3 style="margin-top:18px">If you already know your numbers</h3>
+      <p class="card__sub" style="margin-bottom:12px">Leave these blank to use the equation. Fill them in and yours win &mdash;
+      your own history of eating a known intake and watching the scale is a measurement; the equation is a population guess.</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="p-known">Known maintenance (kcal/day)</label>
+          <input id="p-known" type="number" data-p-num="knownMaintenanceKcal" min="800" max="5000" step="10"
+            value="${p.knownMaintenanceKcal ?? ''}" placeholder="from experience">
+          <p class="hint">What you can eat without gaining.</p>
+        </div>
+        <div class="field">
+          <label for="p-floor">Your calorie floor (kcal/day)</label>
+          <input id="p-floor" type="number" data-p-num="minKcal" min="1200" max="3000" step="10"
+            value="${p.minKcal ?? ''}" placeholder="lowest you'll go">
+          <p class="hint">No deficit target will be set below this. Never below 1200 regardless.</p>
+        </div>
+      </div>
     </div>
 
     ${raw(complete ? targetsCard(targetsFull, status, p) : '')}
+
+    <div class="card">
+      <div class="card__head">
+        <div><h2>Dietary rules</h2>
+        <p class="card__sub">Checked against every ingredient, not against a label someone typed. These are never relaxed.</p></div>
+      </div>
+
+      <div class="field">
+        <label>Restrictions</label>
+        <div class="badge-row">
+          ${raw(Object.values(RESTRICTIONS).map((r) =>
+            `<button class="badge ${state.preferences.restrictions?.includes(r.key) ? 'badge--accent' : ''}"
+               data-restriction="${r.key}" style="cursor:pointer">${esc(r.label)}</button>`).join(''))}
+        </div>
+        ${raw((state.preferences.restrictions ?? []).map((k) =>
+          `<p class="hint"><b>${esc(RESTRICTIONS[k].label)}:</b> ${esc(RESTRICTIONS[k].hint)}</p>`).join(''))}
+      </div>
+
+      ${raw(state.preferences.restrictions?.includes('lactose-free') ? `
+      <div class="field">
+        <label>
+          <input type="checkbox" data-pf-bool="allowLowLactose" ${state.preferences.allowLowLactose ? 'checked' : ''} style="width:auto;margin-right:7px">
+          I can handle aged hard cheese (parmesan, mature cheddar)
+        </label>
+        <p class="hint">Lactose is drained off with the whey and mostly consumed during ageing, so hard cheeses retain very little &mdash;
+        many lactose-intolerant people tolerate them fine. Tolerance genuinely varies, so this is your call, not the app's.
+        Ticking it adds about seven more meals to your library.</p>
+      </div>` : '')}
+
+      <div class="field">
+        <label for="excl-ing">Ingredients you never want</label>
+        <div class="flex" style="align-items:flex-end">
+          <select id="excl-ing" style="flex:1;min-width:170px">
+            ${raw(INGREDIENTS.filter((i) => !i.negligible).map((i) =>
+              `<option value="${esc(i.id)}">${esc(i.name)}</option>`).join(''))}
+          </select>
+          <button class="btn btn--sm" data-add-excl-ing>Exclude</button>
+        </div>
+        <p class="hint">Stronger than excluding a meal: no meal containing this ingredient will ever be planned, including your own.</p>
+        ${raw((state.preferences.excludedIngredients ?? []).length ? `<div class="badge-row" style="margin-top:8px">
+          ${state.preferences.excludedIngredients.map((id) => {
+            const ing = INGREDIENTS.find((x) => x.id === id);
+            return `<span class="badge badge--bad">${esc(ing?.name ?? id)}
+              <button data-rm-excl-ing="${esc(id)}" aria-label="Remove" style="background:none;border:0;cursor:pointer;color:inherit;font-weight:700;padding:0 0 0 5px">&times;</button></span>`;
+          }).join('')}
+        </div>` : '')}
+      </div>
+
+      <div class="field">
+        <label>Proteins you want most of</label>
+        <div class="badge-row">
+          ${raw(['chicken', 'lamb', 'beef', 'pork', 'turkey', 'salmon', 'white fish', 'prawns', 'egg', 'soy', 'pulses'].map((f) =>
+            `<button class="badge ${state.preferences.preferredProteins?.includes(f) ? 'badge--accent' : ''}"
+               data-protein="${esc(f)}" style="cursor:pointer">${esc(f)}</button>`).join(''))}
+        </div>
+        <p class="hint">A nudge, not a filter &mdash; plans will lean toward these without cutting everything else out of the library.
+        The planner will still refuse to put the same protein in two slots of the same day.</p>
+      </div>
+
+      <div class="field">
+        <label>One free meal a week</label>
+        <label style="font-weight:450">
+          <input type="checkbox" data-free-enabled ${state.preferences.freeMeal?.enabled ? 'checked' : ''} style="width:auto;margin-right:7px">
+          Leave one meal a week unplanned
+        </label>
+        ${raw(state.preferences.freeMeal?.enabled ? `
+        <div class="field-row" style="margin-top:10px">
+          <div class="field">
+            <label for="free-day">Which day</label>
+            <select id="free-day" data-free-day>
+              ${DAY_NAMES.map((d) => `<option value="${d}" ${state.preferences.freeMeal.day === d ? 'selected' : ''}>${d}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label for="free-slot">Which meal</label>
+            <select id="free-slot" data-free-slot>
+              ${SLOTS.map((sl) => `<option value="${sl}" ${state.preferences.freeMeal.slot === sl ? 'selected' : ''}>${SLOT_META[sl].label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <p class="hint">That slot is left blank and its calories are not counted &mdash; the app will not invent a number for a meal it cannot see.
+        The Meal plan tab does the arithmetic on what it actually costs you, which is less than people fear.</p>` : '')}
+      </div>
+    </div>
 
     <div class="card">
       <div class="card__head">
@@ -260,7 +366,8 @@ function targetsCard(t, status, profile) {
         <tbody>
           <tr><td>Basal metabolic rate (Mifflin-St Jeor)</td><td class="num">${t.bmr} kcal</td></tr>
           <tr><td>&times; activity multiplier (${esc(ACTIVITY_LEVELS[profile.activityKey]?.label ?? '')})</td><td class="num">&times;${ACTIVITY_LEVELS[profile.activityKey]?.multiplier ?? '-'}</td></tr>
-          <tr><td><b>Estimated maintenance</b></td><td class="num"><b>${t.maintenance} kcal</b></td></tr>
+          <tr><td><b>${t.usingKnownMaintenance ? 'Your stated maintenance' : 'Estimated maintenance'}</b></td><td class="num"><b>${t.maintenance} kcal</b></td></tr>
+          ${t.usingKnownMaintenance ? `<tr><td class="muted">Equation would have predicted</td><td class="num muted">${t.predictedMaintenance} kcal</td></tr>` : ''}
           ${status.phase === 'deficit' ? `<tr><td>Deficit applied</td><td class="num">&minus;${Math.round(t.effectiveDeficitPct * 100)}%</td></tr>` : ''}
           <tr><td><b>Your daily target</b></td><td class="num"><b>${t.kcal} kcal</b></td></tr>
           <tr><td>Protein basis weight</td><td class="num">${t.proteinBasisKg} kg</td></tr>
@@ -341,6 +448,57 @@ export function afterRender(root, ctx) {
 
   root.querySelectorAll('[data-pf-bool]').forEach((el) =>
     el.addEventListener('change', () => { store.update((s) => { s.preferences[el.dataset.pfBool] = el.checked; }); }));
+
+  root.querySelectorAll('[data-restriction]').forEach((el) =>
+    el.addEventListener('click', () => {
+      const k = el.dataset.restriction;
+      store.update((st) => {
+        const r = st.preferences.restrictions ?? [];
+        st.preferences.restrictions = r.includes(k) ? r.filter((x) => x !== k) : [...r, k];
+      });
+      rerender();
+    }));
+
+  root.querySelectorAll('[data-protein]').forEach((el) =>
+    el.addEventListener('click', () => {
+      const k = el.dataset.protein;
+      store.update((st) => {
+        const r = st.preferences.preferredProteins ?? [];
+        st.preferences.preferredProteins = r.includes(k) ? r.filter((x) => x !== k) : [...r, k];
+      });
+      rerender();
+    }));
+
+  root.querySelector('[data-add-excl-ing]')?.addEventListener('click', () => {
+    const id = root.querySelector('#excl-ing').value;
+    store.update((st) => {
+      const list = st.preferences.excludedIngredients ?? [];
+      if (!list.includes(id)) st.preferences.excludedIngredients = [...list, id];
+    });
+    toast('Excluded');
+    rerender();
+  });
+
+  root.querySelectorAll('[data-rm-excl-ing]').forEach((el) =>
+    el.addEventListener('click', () => {
+      store.update((st) => {
+        st.preferences.excludedIngredients = (st.preferences.excludedIngredients ?? []).filter((x) => x !== el.dataset.rmExclIng);
+      });
+      rerender();
+    }));
+
+  root.querySelector('[data-free-enabled]')?.addEventListener('change', (e) => {
+    store.update((st) => {
+      st.preferences.freeMeal = { ...(st.preferences.freeMeal ?? { day: 'Saturday', slot: 'dinner' }), enabled: e.target.checked };
+    });
+    rerender();
+  });
+  root.querySelector('[data-free-day]')?.addEventListener('change', (e) => {
+    store.update((st) => { st.preferences.freeMeal.day = e.target.value; });
+  });
+  root.querySelector('[data-free-slot]')?.addEventListener('change', (e) => {
+    store.update((st) => { st.preferences.freeMeal.slot = e.target.value; });
+  });
 
   root.querySelectorAll('[data-plan-mode]').forEach((el) =>
     el.addEventListener('click', () => {

@@ -28,8 +28,9 @@
  */
 
 import { SLOT_META } from '../data/meals.js';
-import { getIngredient } from '../data/ingredients.js';
+import { getIngredient, proteinFamily, REPETITION_EXEMPT } from '../data/ingredients.js';
 import { allMeals, getMeal } from './registry.js';
+import { mealSatisfiesAll, mealContainsAny, RESTRICTIONS } from './diet.js';
 import { mealMacrosRaw, lineMacros, dayTotals, scoreDay } from './nutrition.js';
 import { addDays, weekStart } from './cycle.js';
 
@@ -88,12 +89,23 @@ export const DEFAULT_PREFERENCES = {
   planMode: 'repeating',
   favourites: [],
   excluded: [],
+  /** Hard dietary rules, checked against ingredients. Never relaxed. */
+  restrictions: [],
+  /** Whether very-low-lactose hard cheeses are acceptable. Tolerance varies. */
+  allowLowLactose: false,
+  /** Ingredient ids to keep out of every meal, e.g. because you dislike them. */
+  excludedIngredients: [],
+  /** Protein families to favour, e.g. ['chicken','lamb','beef','pork']. A nudge, not a filter. */
+  preferredProteins: [],
+  /** Soft preferences: nice to have, relaxed if they leave nothing to plan. */
   requireTags: [],
   avoidTags: [],
   snacksPerDay: 2,
   dessertDaily: true,
   maxPrepMin: 0,
   pinned: {},
+  /** One unplanned meal a week. { enabled, day, slot } */
+  freeMeal: { enabled: false, day: 'Saturday', slot: 'dinner' },
 };
 
 /**
@@ -117,34 +129,47 @@ export function mealHasTag(meal, tag) {
 }
 
 /**
- * Meals for a slot that satisfy every preference, with nothing relaxed.
+ * Meals allowed by the HARD rules: dietary restrictions, excluded ingredients,
+ * and meals you have struck off by name.
+ *
+ * These are never relaxed, by anything, for any reason. If someone is
+ * intolerant, an empty plan is a correct answer and a plate of gluten is not.
+ */
+export function allowedPool(slot, prefs) {
+  const p = { ...DEFAULT_PREFERENCES, ...prefs };
+  const opts = { allowLowLactose: p.allowLowLactose };
+
+  return allMeals().filter((m) =>
+    m.slot === slot
+    && !p.excluded.includes(m.id)
+    && mealSatisfiesAll(m, p.restrictions ?? [], opts)
+    && !mealContainsAny(m, p.excludedIngredients ?? []));
+}
+
+/**
+ * Meals that satisfy the hard rules AND the soft tag preferences.
  * May legitimately be empty - see `candidatePool`.
  */
 export function strictPool(slot, prefs) {
   const p = { ...DEFAULT_PREFERENCES, ...prefs };
-  return allMeals().filter((m) =>
-    m.slot === slot
-    && !p.excluded.includes(m.id)
-    && p.requireTags.every((t) => mealHasTag(m, t))
+  return allowedPool(slot, p).filter((m) =>
+    p.requireTags.every((t) => mealHasTag(m, t))
     && !p.avoidTags.some((t) => mealHasTag(m, t)));
 }
 
 /**
  * Candidate meals for a slot.
  *
- * If the filters leave nothing at all, tag rules are relaxed rather than
- * returning an empty day - but `poolWarnings` reports that this happened, so
- * the relaxation is visible rather than silent.
+ * Soft tag preferences are relaxed if they leave nothing to plan with, and
+ * `poolWarnings` reports it so the relaxation is visible. Hard rules are never
+ * relaxed: if `allowedPool` is empty the result is empty, and the caller has to
+ * deal with that rather than being handed something unsafe.
  */
 export function candidatePool(slot, prefs) {
   const p = { ...DEFAULT_PREFERENCES, ...prefs };
   const strict = strictPool(slot, p);
   if (strict.length) return strict;
-
-  const withoutTags = allMeals().filter((m) => m.slot === slot && !p.excluded.includes(m.id));
-  if (withoutTags.length) return withoutTags;
-
-  return allMeals().filter((m) => m.slot === slot);
+  return allowedPool(slot, p);
 }
 
 /** Diagnose preference settings that leave too little to work with. */
@@ -153,12 +178,18 @@ export function poolWarnings(prefs) {
   const warnings = [];
 
   for (const slot of ['breakfast', 'lunch', 'dinner', 'snack', 'dessert']) {
+    const allowed = allowedPool(slot, p);
     const strict = strictPool(slot, p);
 
-    if (!strict.length) {
-      warnings.push(`No ${slot} option matches your filters at all, so they were ignored for ${slot} and the full library was used instead. Drop a required tag, or add your own ${slot} on the Meals tab.`);
+    if (!allowed.length) {
+      const names = (p.restrictions ?? []).map((r) => RESTRICTIONS[r]?.label ?? r).join(' + ');
+      warnings.push(`There is no ${slot} in your library that is ${names || 'allowed by your rules'}. Your dietary rules are never relaxed, so this slot cannot be filled - add a ${slot} of your own on the Meals tab.`);
+    } else if (allowed.length < 3) {
+      warnings.push(`Only ${allowed.length} ${slot} option${allowed.length === 1 ? '' : 's'} fit your dietary rules, so plans will repeat. Worth adding a couple of your own on the Meals tab.`);
+    } else if (!strict.length) {
+      warnings.push(`No ${slot} matches your preference tags, so those tags were ignored for ${slot}. Your dietary rules were still applied.`);
     } else if (strict.length < 3) {
-      warnings.push(`Only ${strict.length} ${slot} option${strict.length === 1 ? '' : 's'} pass your filters, so you will see a lot of repetition. Loosen a tag or un-exclude something.`);
+      warnings.push(`Only ${strict.length} ${slot} option${strict.length === 1 ? '' : 's'} pass your preference tags, so you will see a lot of repetition.`);
     }
   }
   return warnings;
@@ -232,7 +263,7 @@ function fitServings(entries, targets) {
  */
 function ingredientRepetition(entries) {
   const counts = new Map();
-  const anchorCounts = new Map();
+  const familyCounts = new Map();
 
   for (const e of entries) {
     const meal = getMeal(e.mealId);
@@ -240,28 +271,51 @@ function ingredientRepetition(entries) {
 
     const anchors = anchorProteins(meal);
     const seen = new Set();
+    const familiesThisMeal = new Set();
+
     for (const [id] of meal.items) {
       if (seen.has(id)) continue;
       let ing;
       try { ing = getIngredient(id); } catch { continue; }
-      if (ing.negligible) continue;
+      if (ing.negligible || REPETITION_EXEMPT.has(id)) continue;
       seen.add(id);
       counts.set(id, (counts.get(id) ?? 0) + 1);
-      if (anchors.has(id)) anchorCounts.set(id, (anchorCounts.get(id) ?? 0) + 1);
+
+      // Count the protein FAMILY, not the exact cut: chicken breast at lunch
+      // and chicken thigh at dinner is still chicken fourteen times a week.
+      if (anchors.has(id)) {
+        const fam = proteinFamily(id) ?? id;
+        familiesThisMeal.add(fam);
+      }
     }
+    for (const fam of familiesThisMeal) familyCounts.set(fam, (familyCounts.get(fam) ?? 0) + 1);
   }
 
   let penalty = 0;
   for (const n of counts.values()) {
     if (n >= 3) penalty += (n - 2) * 1.2;  // in three or more slots of the same day
   }
-  // A main protein source repeating across slots is worse than a shared
-  // vegetable: on a repeating menu, tuna at lunch and tuna at snack is
-  // fourteen tins over the week, not two.
-  for (const n of anchorCounts.values()) {
-    if (n >= 2) penalty += (n - 1) * 2.0;
+  for (const n of familyCounts.values()) {
+    if (n >= 2) penalty += (n - 1) * 2.5;
   }
   return penalty;
+}
+
+/** The protein families a menu leans on, and how many slots each covers. */
+export function proteinFamilyCounts(entries) {
+  const out = new Map();
+  for (const e of entries) {
+    const meal = getMeal(e.mealId);
+    if (!meal?.items?.length) continue;
+    const fams = new Set();
+    for (const id of anchorProteins(meal)) {
+      if (REPETITION_EXEMPT.has(id)) continue;
+      const fam = proteinFamily(id);
+      if (fam) fams.add(fam);
+    }
+    for (const f of fams) out.set(f, (out.get(f) ?? 0) + 1);
+  }
+  return out;
 }
 
 /** Ingredients supplying at least a quarter of a meal's protein. */
@@ -327,7 +381,7 @@ function batchFriendliness(entries) {
  * Score a candidate day. Lower is better.
  * Calories and protein dominate; fibre, variety and favourites are tie-breakers.
  */
-function scoreCandidate(entries, targets, recentIds, favourites, { repeating = false } = {}) {
+function scoreCandidate(entries, targets, recentIds, favourites, { repeating = false, preferredProteins = [] } = {}) {
   const totals = dayTotals({ entries });
 
   const kcalErr = Math.abs(totals.kcal - targets.kcal) / Math.max(1, targets.kcal);
@@ -354,6 +408,19 @@ function scoreCandidate(entries, targets, recentIds, favourites, { repeating = f
     // cooking matter far more here than they do for a one-off day.
     score += ingredientRepetition(entries);
     score -= batchFriendliness(entries) * 1.5;
+  }
+
+  if (preferredProteins.length) {
+    // A soft steer toward the proteins you actually like, not a hard filter -
+    // a hard filter here would make the library far smaller than it needs to be.
+    const fams = proteinFamilyCounts(entries);
+    let matched = 0;
+    let unmatched = 0;
+    for (const [fam, n] of fams) {
+      if (preferredProteins.includes(fam)) matched += n; else unmatched += n;
+    }
+    score -= matched * 1.1;
+    score += unmatched * 0.8;
   }
 
   return score;
@@ -383,9 +450,13 @@ export function generateDay({ targets, prefs, recentIds = [], pinnedIds = [], ra
   let best = null;
   let bestScore = Infinity;
 
+  // A slot with no compliant option is left out rather than filled with
+  // something that breaks a dietary rule. The warning explains why.
+  const fillable = budgets.filter(({ slot }) => pools[slot].length > 0 || pinnedBySlot[slot]?.length);
+
   for (let attempt = 0; attempt < attempts; attempt++) {
     const usedThisDay = new Set();
-    const proposal = budgets.map(({ slot, kcal }) => {
+    const proposal = fillable.map(({ slot, kcal }) => {
       const pinned = pinnedBySlot[slot]?.filter((id) => !usedThisDay.has(id));
       let mealId;
       if (pinned?.length) {
@@ -403,10 +474,11 @@ export function generateDay({ targets, prefs, recentIds = [], pinnedIds = [], ra
     });
 
     const fitted = fitServings(proposal, targets);
-    const score = scoreCandidate(fitted, targets, recentIds, p.favourites, { repeating });
+    const score = scoreCandidate(fitted, targets, recentIds, p.favourites, { repeating, preferredProteins: p.preferredProteins ?? [] });
     if (score < bestScore) { bestScore = score; best = fitted; }
   }
 
+  best ??= [];
   const totals = dayTotals({ entries: best });
   return { entries: best, totals, score: scoreDay(totals, targets) };
 }
@@ -461,7 +533,7 @@ export function generateWeek({ targets, prefs = {}, startDate, seed = randomSeed
       score: menu.score,
     }));
 
-    return { ...base, menu: { entries: menu.entries, totals: menu.totals, score: menu.score }, days };
+    return applyFreeMeal({ ...base, menu: { entries: menu.entries, totals: menu.totals, score: menu.score }, days }, p);
   }
 
   const days = [];
@@ -484,7 +556,74 @@ export function generateWeek({ targets, prefs = {}, startDate, seed = randomSeed
     recent.push(...day.entries.map((e) => e.mealId));
   }
 
-  return { ...base, days };
+  return applyFreeMeal({ ...base, days }, p);
+}
+
+/**
+ * Swap one slot on one day for an unplanned meal of your choosing.
+ *
+ * The app does not estimate its calories, because it cannot know them and a
+ * made-up number is worse than an honest blank. What it can do is the
+ * arithmetic on whether it matters: see `freeMealImpact`.
+ */
+function applyFreeMeal(plan, prefs) {
+  const fm = prefs.freeMeal;
+  if (!fm?.enabled) return plan;
+
+  const dayIndex = DAY_NAMES.indexOf(fm.day);
+  if (dayIndex < 0) return plan;
+
+  const day = plan.days[dayIndex];
+  if (!day) return plan;
+
+  const slotIndex = day.entries.findIndex((e) => e.slot === fm.slot);
+  if (slotIndex < 0) return plan;
+
+  const replaced = day.entries[slotIndex];
+  const entries = day.entries.map((e, i) => (i === slotIndex
+    ? { slot: e.slot, mealId: null, servings: 0, freeMeal: true, replacedMealId: replaced.mealId }
+    : { ...e }));
+
+  plan.days[dayIndex] = {
+    ...day,
+    entries,
+    totals: dayTotals({ entries }),
+    score: scoreDay(dayTotals({ entries }), plan.targets),
+    hasFreeMeal: true,
+  };
+  plan.freeMeal = { day: fm.day, slot: fm.slot, dayIndex, slotIndex };
+  return plan;
+}
+
+/**
+ * How much does one free meal a week actually cost you?
+ *
+ * Worth computing rather than hand-waving. The planned slot it replaces already
+ * had calories in it, so the cost is only the difference - and spread across a
+ * week it is usually small enough that worrying about it does more damage than
+ * the meal does.
+ */
+export function freeMealImpact(plan, assumedKcal = 900) {
+  if (!plan?.freeMeal) return null;
+
+  const day = plan.days[plan.freeMeal.dayIndex];
+  const entry = day.entries[plan.freeMeal.slotIndex];
+  const replacedKcal = entry?.replacedMealId
+    ? mealMacrosRaw(entry.replacedMealId, plan.menu?.entries?.[plan.freeMeal.slotIndex]?.servings ?? 1).kcal
+    : plan.targets.kcal * 0.3;
+
+  const weeklyTarget = plan.targets.kcal * 7;
+  const extra = Math.max(0, assumedKcal - replacedKcal);
+
+  return {
+    assumedKcal,
+    replacedKcal: Math.round(replacedKcal),
+    extraKcal: Math.round(extra),
+    weeklyTarget: Math.round(weeklyTarget),
+    pctOfWeek: Math.round((extra / weeklyTarget) * 1000) / 10,
+    /** Roughly what that extra is worth in bodyweight, using the 7700 kcal/kg planning figure. */
+    kgEquivalent: Math.round((extra / 7700) * 1000) / 1000,
+  };
 }
 
 /** A plan with no `mode` predates the setting and was a varied week. */

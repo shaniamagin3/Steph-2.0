@@ -21,11 +21,16 @@ dependency.
 npm run serve      # http://localhost:8080
 ```
 
-Or open `index.html` through any static file server. It also deploys to GitHub
-Pages, Netlify or similar as-is, with nothing to configure.
+**On the web:** pushing to `main` or the working branch runs the tests and, if
+they pass, publishes to GitHub Pages at
+`https://<owner>.github.io/Steph-2.0/` — see `.github/workflows/pages.yml`.
+The workflow enables Pages itself on first run.
+
+Or open `index.html` through any static file server. It deploys to Netlify or
+similar as-is, with nothing to configure.
 
 ```bash
-npm test           # 151 tests, no dependencies
+npm test           # 205 tests, no dependencies
 ```
 
 > Opening `index.html` directly as a `file://` URL will not work — browsers
@@ -49,9 +54,18 @@ predicted by an equation. If your weight drifts during those two weeks, you
 correct the estimate before the deficit starts instead of chasing a moving
 target for ten weeks.
 
-The deficit defaults to 18% below maintenance and is capped at 25%. It will
-never program you below your estimated BMR or below 1200 kcal, whatever you
-ask for — it raises the target to the floor and tells you it did.
+The deficit defaults to 18% below maintenance and is capped at 25%.
+
+**If you already know your numbers, yours win.** Setup takes an optional known
+maintenance and a personal calorie floor. Your own history of eating a known
+intake and watching the scale is a measurement; the equation is a population
+guess, and the app says which one it is using.
+
+Floors work like this: without a personal floor, the app will not program below
+your estimated BMR. With one, your floor is used and going under predicted BMR
+is **flagged rather than blocked** — the prediction can be out by a few hundred
+calories either way, and you know your own history. 1200 kcal is a hard floor
+that nothing overrides.
 
 ### Meal plans that hit your numbers
 
@@ -74,8 +88,9 @@ and tuna again at snack is fourteen tins across the week, not two. It also shows
 you what the week actually adds up to for anything appearing in more than one
 meal a day.
 
-- **71 meals built in**, every one of them protein-forward, fibre-forward, and
-  biased toward slower-digesting carbohydrate sources.
+- **101 meals built in**, every one of them protein-forward, fibre-forward, and
+  biased toward slower-digesting carbohydrate sources. 43 of them are both
+  lactose free and gluten free.
 - **Portions scale in quarter-serving steps** to fit the day's budget. In
   testing, every day lands within about 1% of target.
 - **Add your own meals** — either built from the ingredient table (so portions
@@ -92,6 +107,46 @@ meal a day.
 - Dessert is planned in every day on purpose. A plan that forbids dessert is a
   plan you abandon in week three.
 
+### Dietary rules
+
+Set on the Setup tab and checked against **every ingredient**, not against a
+tag someone typed by hand. A meal labelled gluten free but containing bread
+still fails, because the check looks at what is actually in it.
+
+- **Lactose free** — excludes milk, yoghurt and soft cheese. Lactose-free dairy
+  is fine: it is ordinary dairy with the lactase already added, and its macros
+  match. There is an optional setting for aged hard cheeses (parmesan, mature
+  cheddar), which retain very little lactose because it drains off with the whey
+  and what remains is largely consumed during ageing — many lactose-intolerant
+  people tolerate them, but tolerance varies, so it is your call, not the app's.
+- **Gluten free**, **dairy free**, **vegetarian**, **vegan** — same treatment.
+- **Excluded ingredients** — stronger than excluding a meal. Nothing containing
+  it is ever planned, including your own custom meals.
+- **Preferred proteins** — a nudge toward the proteins you actually like,
+  without cutting the rest of the library out.
+
+**Restrictions are never relaxed.** Soft preference tags get dropped if they
+leave nothing to plan with, and the app tells you when that happens. Dietary
+rules do not: if a slot cannot be filled safely, it is left empty and you are
+told why. An empty dessert slot is a correct answer; a plate of gluten is not.
+
+**Where safety depends on the brand, the app says so instead of pretending.**
+Oats are naturally gluten free but routinely cross-contaminated. Curry powders,
+stock and soy sauce commonly contain wheat. Dark chocolate commonly contains
+milk solids. The plan lists exactly which items to read the label on, because
+the app can verify its own data and cannot verify your cupboard.
+
+### One free meal a week
+
+Pick a day and a slot. That meal is left unplanned and **its calories are not
+counted** — the app will not invent a number for a meal it cannot see.
+
+What it will do is the arithmetic. The slot it replaces already had calories in
+it, so the real cost is the difference: typically a few hundred calories, around
+3–5% of your week. The plan page shows that sum, because people routinely
+overestimate what one meal costs and then eat badly for two days out of guilt,
+which costs far more.
+
 ### Daily check-in
 
 A morning weigh-in plus the seven habits:
@@ -103,12 +158,18 @@ A morning weigh-in plus the seven habits:
 | 🍽️ | Stuck to the meal plan — yes / mostly / no |
 | 💧 | Drank 2L of water — with +0.25L / +0.5L tap buttons, since water is the one habit you log in pieces through the day |
 | 👟 | Steps, 5–8k |
+| 🏋️ | Trained today — a **weekly** target of 3–4 sessions, not a daily one |
 | 📓 | Journaled |
 | 🧘 | Neck exercises |
 
 Streaks are tracked per habit. An **unlogged** day ends a streak without
 breaking it — there is a real difference between "I did not do it" and "I did
 not write it down", and conflating them makes the number meaningless.
+
+Training is scored differently on purpose. It is counted **across the week**
+against a 3–4 session target and excluded from the daily percentage entirely,
+so a rest day reads as a rest day rather than a failed habit. A week you never
+filled in reports as unknown, not as zero sessions.
 
 ### Weekly check-in
 
@@ -200,16 +261,17 @@ src/
     nutrition.js         macro computation, shopping list aggregation
     checkins.js          habits, streaks, adherence, weight-trend maths
     cycle.js             cycle phase estimation, date helpers
+    diet.js              dietary suitability, derived from ingredients
     program.js           maintenance/deficit phase timeline
     registry.js          built-in meals plus your own
     store.js             localStorage and IndexedDB persistence
     charts.js            inline SVG charts, no library
     ui.js                escaping, templating, modals
   data/
-    ingredients.js       ~100 ingredients with reference macros
-    meals.js             71 meals defined as ingredients and quantities
+    ingredients.js       ~120 ingredients with reference macros and dietary classification
+    meals.js             101 meals defined as ingredients and quantities
   views/                 one module per tab
-tests/                   151 tests, run with node --test
+tests/                   205 tests, run with node --test
 docs/NUTRITION.md        the reasoning behind every number
 ```
 

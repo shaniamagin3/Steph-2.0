@@ -1,0 +1,52 @@
+# Deploy Steph 2.0 to GitHub Pages.
+#
+# The app is plain HTML, CSS and ES modules with no build step, so this just
+# runs the tests and then uploads the repository as-is.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, claude/pcos-coaching-app-gqe9u6]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; don't cancel a run that is already publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run tests
+        run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        # Turns Pages on for the repo if it is not already enabled, so this
+        # works without anyone visiting the settings screen.
+        with:
+          enablement: true
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

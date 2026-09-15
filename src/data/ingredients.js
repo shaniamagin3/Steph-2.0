@@ -45,6 +45,7 @@ export const INGREDIENTS = [
   I('cottage_cheese', 'Cottage cheese (low fat)', 'Dairy & eggs', 100, 'g', 72, 11, 3.5, 1.5, 0, { tags: ['vegetarian'] }),
   I('ricotta', 'Ricotta (light)', 'Dairy & eggs', 100, 'g', 138, 11, 3, 8, 0, { tags: ['vegetarian'] }),
   I('whey_protein', 'Protein powder (whey or plant)', 'Pantry', 'unit', 'scoop (30g)', 118, 24, 2, 1.5, 0.5, { tags: ['vegetarian', 'pantry-staple'] }),
+  I('protein_isolate', 'Protein powder (whey isolate or plant)', 'Pantry', 'unit', 'scoop (30g)', 115, 25, 1, 1, 0.5, { tags: ['vegetarian', 'lactose-free', 'pantry-staple'] }),
   I('feta', 'Feta', 'Dairy & eggs', 100, 'g', 264, 14, 4, 21, 0, { tags: ['vegetarian'] }),
   I('halloumi', 'Halloumi', 'Dairy & eggs', 100, 'g', 321, 22, 2.2, 25, 0, { tags: ['vegetarian'] }),
   I('parmesan', 'Parmesan', 'Dairy & eggs', 100, 'g', 402, 36, 3.2, 27, 0, { tags: ['vegetarian'] }),
@@ -129,6 +130,36 @@ export const INGREDIENTS = [
   I('sugar_free_jelly', 'Sugar-free jelly (prepared)', 'Pantry', 100, 'g', 6, 1, 0.4, 0, 0, { tags: ['vegetarian'] }),
   I('gelatine', 'Gelatine powder', 'Pantry', 100, 'g', 335, 84, 0, 0.1, 0, { tags: [] }),
 
+
+  // ---- Lactose-free dairy ---------------------------------------------------
+  // Lactose-free products are ordinary dairy with the lactase enzyme added, so
+  // the macros match their normal counterparts closely. They are not dairy-free.
+  I('lf_greek_yoghurt', 'Lactose-free Greek yoghurt (0% fat)', 'Dairy & eggs', 100, 'g', 59, 10, 3.6, 0.4, 0, { tags: ['vegetarian', 'lactose-free', 'probiotic'] }),
+  I('lf_milk', 'Lactose-free milk (skim)', 'Dairy & eggs', 100, 'ml', 35, 3.4, 5, 0.1, 0, { tags: ['vegetarian', 'lactose-free'] }),
+  I('lf_cream_cheese', 'Lactose-free cream cheese', 'Dairy & eggs', 100, 'g', 175, 6, 4, 15, 0, { tags: ['vegetarian', 'lactose-free'] }),
+  I('coconut_yoghurt', 'Coconut yoghurt (unsweetened)', 'Dairy & eggs', 100, 'g', 130, 1.5, 6, 11, 1, { tags: ['vegan', 'dairy-free', 'lactose-free'] }),
+
+  // ---- Her preferred proteins -----------------------------------------------
+  I('lamb_leg', 'Lamb leg steak (lean, raw)', 'Meat & seafood', 100, 'g', 143, 21, 0, 6.2, 0, { tags: ['animal', 'iron'] }),
+  I('lamb_mince', 'Lamb mince (lean)', 'Meat & seafood', 100, 'g', 165, 20, 0, 9.4, 0, { tags: ['animal', 'iron'] }),
+  I('pork_loin', 'Pork loin steak (lean, raw)', 'Meat & seafood', 100, 'g', 130, 22, 0, 4.5, 0, { tags: ['animal'] }),
+  I('pork_mince', 'Pork mince (lean)', 'Meat & seafood', 100, 'g', 143, 21, 0, 6.4, 0, { tags: ['animal'] }),
+  I('beef_rump', 'Beef rump steak (lean, raw)', 'Meat & seafood', 100, 'g', 133, 22, 0, 5, 0, { tags: ['animal', 'iron'] }),
+
+  // ---- Gluten-free staples --------------------------------------------------
+  I('gf_bread', 'Gluten-free bread', 'Bakery', 'unit', 'slice', 90, 2.5, 15, 2.2, 1.5, { tags: ['vegetarian', 'gluten-free'] }),
+  I('gf_wrap', 'Gluten-free wrap', 'Bakery', 'unit', 'wrap', 165, 3, 29, 4, 2.5, { tags: ['vegetarian', 'gluten-free'] }),
+  I('gf_pasta', 'Gluten-free pasta (cooked)', 'Pantry', 100, 'g', 130, 3, 27, 0.9, 1.8, { tags: ['vegan', 'gluten-free'] }),
+  I('buckwheat_noodles', 'Buckwheat (100%) soba noodles, cooked', 'Pantry', 100, 'g', 99, 5.1, 21, 0.1, 1.8, { tags: ['vegan', 'gluten-free'] }),
+
+  // ---- Anti-inflammatory staples --------------------------------------------
+  I('turmeric', 'Turmeric (ground or fresh)', 'Pantry', 100, 'g', 312, 9.7, 67, 3.3, 22.7, { negligible: true, tags: ['vegan', 'pantry-staple'] }),
+  I('green_tea', 'Green tea', 'Pantry', 100, 'ml', 1, 0, 0, 0, 0, { negligible: true, tags: ['vegan'] }),
+  I('beetroot', 'Beetroot', 'Fruit & veg', 100, 'g', 43, 1.6, 10, 0.2, 2.8, { tags: ['vegan'] }),
+  I('red_cabbage', 'Red cabbage', 'Fruit & veg', 100, 'g', 31, 1.4, 7.4, 0.2, 2.1, { tags: ['vegan', 'cruciferous'] }),
+  I('pomegranate', 'Pomegranate seeds', 'Fruit & veg', 100, 'g', 83, 1.7, 19, 1.2, 4, { tags: ['vegan'] }),
+  I('mint', 'Fresh mint', 'Fruit & veg', 100, 'g', 44, 3.3, 8.4, 0.7, 6.8, { negligible: true, tags: ['vegan'] }),
+
   // ---- Negligible flavourings ----------------------------------------------
   I('garlic', 'Garlic', 'Fruit & veg', 100, 'g', 149, 6.4, 33, 0.5, 2.1, { negligible: true, tags: ['vegan'] }),
   I('ginger', 'Fresh ginger', 'Fruit & veg', 100, 'g', 80, 1.8, 18, 0.8, 2, { negligible: true, tags: ['vegan'] }),
@@ -163,6 +194,148 @@ export const INGREDIENTS = [
  * portion is a few kcal.
  */
 export const ATWATER_EXEMPT = new Set(['cacao_powder', 'vanilla', 'baking_powder']);
+
+/**
+ * Dietary classification.
+ *
+ * Kept as lookup tables rather than extra arguments on every entry: almost all
+ * foods are naturally free of both lactose and gluten, so listing only the
+ * exceptions is both shorter and much harder to get wrong.
+ *
+ * LACTOSE, 0-3. The ordering here is well established: milk is highest;
+ * fermentation in yoghurt breaks down part of it; and aged hard cheeses
+ * (parmesan, mature cheddar) retain very little, because lactose is drained off
+ * with the whey and what remains is largely consumed during ageing.
+ *   0 none      - no lactose, or lactase already added
+ *   1 low       - aged hard cheese, butter. Tolerated by most people who are
+ *                 lactose intolerant, though tolerance genuinely varies.
+ *   2 moderate  - yoghurt, soft and fresh cheeses
+ *   3 high      - milk, cream
+ *
+ * GLUTEN, 0-2.
+ *   0 none      - naturally gluten free
+ *   1 trace     - naturally gluten free but routinely cross-contaminated in
+ *                 processing (oats are the main one). Buy the labelled
+ *                 gluten-free version.
+ *   2 contains  - wheat, barley or rye
+ */
+export const LACTOSE = {
+  milk_skim: 3,
+  greek_yoghurt: 2, greek_yoghurt_full: 2, cottage_cheese: 2, ricotta: 2,
+  feta: 2, mozzarella_light: 2, halloumi: 2,
+  parmesan: 1, cheddar_light: 1,
+  // Whey concentrate carries some lactose; isolate and plant proteins do not.
+  // Treated as low, with the swap called out in the app.
+  whey_protein: 1,
+};
+
+export const GLUTEN = {
+  wholemeal_bread: 2, sourdough: 2, wholemeal_wrap: 2, pasta_wholemeal: 2,
+  soy_sauce: 2,   // ordinary soy sauce is wheat-brewed; tamari is not
+  oats: 1,
+  spice_mix: 1,   // blends and stock powders are a common hidden source
+  stock: 1,
+};
+
+/**
+ * Components commonly associated with an anti-inflammatory pattern of eating.
+ *
+ * Read docs/NUTRITION.md before relying on this. The short version: the
+ * evidence supports a whole dietary PATTERN - largely unprocessed, plenty of
+ * plants, olive oil, oily fish, not much refined sugar - far better than it
+ * supports any individual food doing something measurable to your inflammation.
+ * This tag exists to steer the plan toward that pattern, not to make a claim
+ * about any one ingredient.
+ */
+export const ANTI_INFLAMMATORY = new Set([
+  'salmon_fillet', 'salmon_smoked', 'white_fish',
+  'olive_oil', 'avocado', 'walnuts', 'almonds', 'pumpkin_seeds', 'chia_seeds', 'flaxseed', 'tahini',
+  'spinach', 'kale', 'broccoli', 'cauliflower', 'rocket', 'salad_leaves', 'capsicum',
+  'cherry_tomatoes', 'tomato_passata', 'carrot', 'beetroot', 'red_cabbage', 'cabbage_slaw',
+  'blueberries', 'raspberries', 'strawberries', 'frozen_berries', 'pomegranate', 'orange', 'kiwi',
+  'turmeric', 'ginger', 'garlic', 'green_tea', 'herbs_fresh', 'mint', 'cinnamon',
+  'lentils_cooked', 'chickpeas', 'black_beans', 'edamame', 'quinoa', 'oats',
+  'cacao_powder', 'dark_chocolate',
+]);
+
+// Attach the classification to every ingredient.
+for (const ing of INGREDIENTS) {
+  ing.lactose = LACTOSE[ing.id] ?? 0;
+  ing.gluten = GLUTEN[ing.id] ?? 0;
+  ing.antiInflammatory = ANTI_INFLAMMATORY.has(ing.id);
+}
+
+/**
+ * Is this ingredient acceptable under a dietary restriction?
+ * @param {object} ing
+ * @param {'lactose-free'|'gluten-free'|'dairy-free'|'vegetarian'|'vegan'} restriction
+ * @param {{allowLowLactose?:boolean}} [opts]
+ */
+export function ingredientAllowed(ing, restriction, { allowLowLactose = false } = {}) {
+  switch (restriction) {
+    case 'lactose-free':
+      return ing.lactose === 0 || (allowLowLactose && ing.lactose === 1);
+    case 'gluten-free':
+      return ing.gluten < 2;   // 'trace' is allowed; the app says to buy the GF version
+    case 'dairy-free':
+      return !['Dairy & eggs'].includes(ing.aisle) || (ing.tags ?? []).includes('dairy-free') || ing.id === 'egg' || ing.id === 'egg_whites';
+    case 'vegetarian':
+      return !(ing.tags ?? []).includes('animal');
+    case 'vegan':
+      return (ing.tags ?? []).includes('vegan') || (ing.tags ?? []).includes('dairy-free') && !(ing.tags ?? []).includes('animal');
+    default:
+      return true;
+  }
+}
+
+/** Lactose-free stand-ins, used to rewrite a meal rather than reject it. */
+export const LACTOSE_SWAPS = {
+  milk_skim: 'lf_milk',
+  greek_yoghurt: 'lf_greek_yoghurt',
+  greek_yoghurt_full: 'lf_greek_yoghurt',
+};
+
+/** Gluten-free stand-ins. */
+export const GLUTEN_SWAPS = {
+  wholemeal_bread: 'gf_bread',
+  sourdough: 'gf_bread',
+  wholemeal_wrap: 'gf_wrap',
+  pasta_wholemeal: 'gf_pasta',
+};
+
+/**
+ * Protein families.
+ *
+ * Chicken breast and chicken thigh are different ingredients but the same
+ * animal, and a menu with one at lunch and the other at dinner is chicken
+ * fourteen times a week. Grouping them lets the planner see that.
+ *
+ * Protein powders are deliberately absent: having a shake as a snack AND
+ * protein in your smoothie is a normal, intentional way to hit a high target,
+ * not monotony to be designed out.
+ */
+export const PROTEIN_FAMILY = {
+  chicken_breast: 'chicken', chicken_thigh: 'chicken',
+  beef_mince_lean: 'beef', beef_rump: 'beef',
+  lamb_leg: 'lamb', lamb_mince: 'lamb',
+  pork_loin: 'pork', pork_mince: 'pork',
+  turkey_mince: 'turkey',
+  salmon_fillet: 'salmon', salmon_smoked: 'salmon',
+  white_fish: 'white fish', prawns: 'prawns', tuna_canned: 'tuna',
+  egg: 'egg', egg_whites: 'egg',
+  greek_yoghurt: 'yoghurt', greek_yoghurt_full: 'yoghurt', lf_greek_yoghurt: 'yoghurt', coconut_yoghurt: 'yoghurt',
+  cottage_cheese: 'fresh cheese', ricotta: 'fresh cheese',
+  feta: 'salty cheese', halloumi: 'salty cheese',
+  tofu_firm: 'soy', tempeh: 'soy', edamame: 'soy',
+  lentils_cooked: 'pulses', chickpeas: 'pulses', black_beans: 'pulses',
+};
+
+/** Ingredients exempt from repetition penalties, because repeating them is the point. */
+export const REPETITION_EXEMPT = new Set(['whey_protein', 'protein_isolate', 'peanut_powder']);
+
+export function proteinFamily(id) {
+  return PROTEIN_FAMILY[id] ?? null;
+}
 
 export const BY_ID = Object.fromEntries(INGREDIENTS.map((i) => [i.id, i]));
 

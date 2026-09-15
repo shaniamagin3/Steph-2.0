@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   HABITS, habitResult, dailyScore, habitStreak, loggingStreak,
   weeklyAdherence, weightSeries, weightTrend, measurementDelta,
-  photoCheckinStatus, weeklyInsights, emptyDaily,
+  photoCheckinStatus, weeklyInsights, emptyDaily, weeklyCount,
 } from '../src/lib/checkins.js';
 import { estimateCycle, averageCycleLength, daysBetween, addDays, weekStart, PHASES } from '../src/lib/cycle.js';
 import { buildProgram, programStatus, isPhotoWeek, nextStepAdvice } from '../src/lib/program.js';
@@ -63,17 +63,26 @@ describe('habitResult', () => {
 });
 
 describe('dailyScore', () => {
+  const DAILY_HABITS = HABITS.filter((h) => h.type !== 'weekly-count');
+
   test('a blank day scores zero without crashing', () => {
     const s = dailyScore(emptyDaily('2026-09-15'));
     assert.equal(s.hit, 0);
-    assert.equal(s.of, HABITS.length);
+    assert.equal(s.of, DAILY_HABITS.length);
   });
 
   test('a perfect day scores 100%', () => {
     const s = dailyScore({ sleep: 7.5, affirmations: true, mealPlan: 'yes', water: 2, steps: 7000, journaled: true, neckExercises: true });
     assert.equal(s.score, 1);
-    assert.equal(s.hit, HABITS.length);
+    assert.equal(s.hit, DAILY_HABITS.length);
     assert.equal(s.complete, true);
+  });
+
+  test('a rest day still scores 100%', () => {
+    // Training is a weekly target. Marking a rest day as a failed habit would
+    // be both wrong and demoralising.
+    const rest = { sleep: 7.5, affirmations: true, mealPlan: 'yes', water: 2, steps: 7000, journaled: true, neckExercises: true, trained: false };
+    assert.equal(dailyScore(rest).score, 1);
   });
 });
 
@@ -380,5 +389,62 @@ describe('water habit', () => {
       trend: { kgPerWeek: null }, phase: 'deficit',
     });
     assert.ok(!notes.some((n) => /[Ww]ater/.test(n.text)));
+  });
+});
+
+describe('training as a weekly target', () => {
+  const trained = HABITS.find((h) => h.key === 'trained');
+
+  test('is defined as a weekly count, not a daily habit', () => {
+    assert.ok(trained);
+    assert.equal(trained.type, 'weekly-count');
+    assert.equal(trained.weeklyTargetMin, 3);
+    assert.equal(trained.weeklyTargetMax, 4);
+  });
+
+  test('is never scored at the day level', () => {
+    assert.equal(habitResult(trained, { trained: true }), null);
+    assert.equal(habitResult(trained, { trained: false }), null);
+  });
+
+  test('has no daily streak, because rest days are not lapses', () => {
+    const days = makeDays('2026-09-20', 7, () => ({ trained: true }));
+    assert.equal(habitStreak(days, 'trained', '2026-09-20'), 0);
+  });
+
+  test('counts sessions across the week', () => {
+    const days = makeDays('2026-09-20', 7, (i) => ({ trained: [0, 2, 4, 6].includes(i) }));
+    assert.equal(weeklyCount(days, 'trained', '2026-09-14'), 4);
+  });
+
+  test('three sessions scores full marks', () => {
+    const days = makeDays('2026-09-20', 7, (i) => ({ trained: [0, 2, 4].includes(i), sleep: 7.5 }));
+    const h = weeklyAdherence(days, '2026-09-14').perHabit.find((x) => x.key === 'trained');
+    assert.equal(h.sessions, 3);
+    assert.equal(h.pct, 100);
+  });
+
+  test('one session scores proportionally', () => {
+    const days = makeDays('2026-09-20', 7, (i) => ({ trained: i === 0, sleep: 7.5 }));
+    const h = weeklyAdherence(days, '2026-09-14').perHabit.find((x) => x.key === 'trained');
+    assert.equal(h.sessions, 1);
+    assert.equal(h.pct, 33);
+  });
+
+  test('an unlogged week reports unknown rather than zero sessions', () => {
+    const h = weeklyAdherence({}, '2026-09-14').perHabit.find((x) => x.key === 'trained');
+    assert.equal(h.pct, null, 'a week you did not fill in is not a week you did not train');
+  });
+
+  test('weekly insights praise hitting the target', () => {
+    const days = makeDays('2026-09-20', 7, (i) => ({ trained: [0, 2, 4].includes(i), sleep: 7.5 }));
+    const notes = weeklyInsights({ adherence: weeklyAdherence(days, '2026-09-14'), trend: { kgPerWeek: null }, phase: 'deficit' });
+    assert.ok(notes.some((n) => n.tone === 'good' && /training sessions/.test(n.text)));
+  });
+
+  test('weekly insights flag a week with no training at all', () => {
+    const days = makeDays('2026-09-20', 7, () => ({ trained: false, sleep: 7.5 }));
+    const notes = weeklyInsights({ adherence: weeklyAdherence(days, '2026-09-14'), trend: { kgPerWeek: null }, phase: 'deficit' });
+    assert.ok(notes.some((n) => /No training logged/.test(n.text)));
   });
 });

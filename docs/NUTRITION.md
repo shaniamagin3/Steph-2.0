@@ -141,6 +141,92 @@ deliberately does not quote a number, because the right number depends on the
 species and on whether you are pregnant or planning to be, and that is not
 something to take from an app.
 
+### Lactose and gluten
+
+The app classifies every ingredient rather than trusting a recipe's label.
+
+**Lactose** is graded none / low / moderate / high. The ordering is well
+established: milk is highest; fermentation in yoghurt breaks down part of it;
+and aged hard cheeses such as parmesan and mature cheddar retain very little,
+because lactose drains off with the whey and most of what remains is consumed
+during ageing. Lactose-free products are ordinary dairy with the lactase enzyme
+added, so their macros match their normal counterparts and they are classified
+as containing none.
+
+Two honest caveats. **Lactose intolerance is not a dairy allergy** — it is a
+digestive issue with a dose threshold, and that threshold varies a lot between
+people. Many people who react to a glass of milk are fine with parmesan. That is
+why the hard-cheese setting is an explicit choice rather than an assumption.
+**Lactose free is not dairy free**, and the app keeps those as separate rules,
+because someone avoiding dairy for other reasons needs the stricter one.
+
+**Gluten** is graded none / trace / contains. "Trace" covers foods that are
+naturally gluten free but routinely cross-contaminated in processing — oats are
+the main one — and items where it depends entirely on the brand, such as spice
+blends, stock and soy sauce. These are allowed but flagged, with instructions to
+buy the labelled gluten-free version or to use tamari rather than soy sauce.
+
+**The limit of what the app can know.** It can verify its own ingredient data.
+It cannot verify what is in your cupboard. Dark chocolate commonly contains milk
+solids; curry powder commonly contains wheat flour as a bulking agent. The plan
+lists those items for you to check rather than quietly assuming. If you are
+coeliac rather than sensitive, treat every "trace" item as something to verify,
+not something the app has cleared.
+
+### "Anti-inflammatory" eating
+
+Worth being careful here, because this phrase carries more confidence in
+marketing than the evidence supports.
+
+What is reasonably supported is that a **whole dietary pattern** — largely
+unprocessed, plenty of vegetables and fruit, olive oil, oily fish, nuts and
+legumes, not much refined sugar — is associated with better markers of
+inflammation than a pattern high in ultra-processed food and refined
+carbohydrate. That is the level at which the claim holds up.
+
+What is much weaker is the idea that any **individual food** does something
+measurable to your inflammation. Turmeric is the usual example: it is genuinely
+interesting, and it is also poorly absorbed, studied mostly at concentrated
+supplement doses far above what you get from cooking with it, and far from
+settled clinically. The app tags it because it tastes good in the dishes you
+asked for, not because a teaspoon in a curry is doing documented pharmacology.
+
+The app's `anti-inflammatory` tag steers plans toward that overall pattern. It
+is not a claim about any one ingredient, and you should not treat it as one.
+
+For most people, the largest levers on chronic inflammation are body
+composition, sleep, activity and not smoking — not which spice went in the pan.
+In PCOS specifically, where insulin resistance is common, improving insulin
+sensitivity is generally the more useful target, and it points at much the same
+way of eating anyway.
+
+### One free meal a week
+
+Planned into the schedule by design, and not counted, because the app cannot
+know what you ate and a made-up number is worse than an honest blank.
+
+The arithmetic is worth seeing rather than fearing. The slot it replaces already
+had calories in it, so the actual cost is the difference — commonly a few
+hundred calories, or roughly 3–5% of a week's intake, which on the usual
+planning figure is a few tens of grams of bodyweight.
+
+That is the entire case for planning it in. One meal a week does not undo a
+deficit. What does damage is the two or three days of guilt-driven eating that
+often follow an *unplanned* one, which is a far larger number and the reason the
+slot exists at all.
+
+### Training, and why it is a weekly target
+
+Resistance training is the single largest factor in whether the weight lost in a
+deficit comes off fat or off lean tissue. It belongs on the habit list for that
+reason rather than for calorie burn, which is a smaller effect than most people
+assume.
+
+It is counted **across the week** against a 3–4 session target and excluded from
+the daily score entirely. Scoring it daily would mark every rest day a failed
+habit, which is both factually wrong — recovery is part of training, not a lapse
+— and the kind of discouraging noise that makes people stop logging.
+
 ### Fibre
 
 The target is roughly **14 g per 1000 kcal**, clamped to 25–38 g/day. This
@@ -233,6 +319,10 @@ tables.
 
 - **Set a goal weight or a deadline.** Neither improves outcomes, and both make
   it easier to justify a deficit that is too aggressive.
+- **Relax a dietary restriction to fill a gap.** If a slot cannot be filled
+  within your rules it is left empty and you are told why. An empty dessert slot
+  is a correct answer; a plate of gluten is not.
+- **Guess the calories in your free meal**, or in any meal it cannot see.
 - **Go below 1200 kcal, or below your estimated BMR**, whatever deficit you ask
   for. It raises the target to the floor and tells you it did.
 - **Call anything a cheat meal, or a food good or bad.** Dessert is planned into

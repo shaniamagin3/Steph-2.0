@@ -458,7 +458,207 @@ export const MEALS = [
     [['greek_yoghurt', 160], ['whey_protein', 0.5], ['frozen_berries', 80], ['dark_chocolate', 10], ['pumpkin_seeds', 8]],
     'Spread the yoghurt-protein mix thin on baking paper, scatter berries, chocolate and seeds, freeze 3 hours, snap into shards.',
     'Make a tray on Sunday. Having a planned dessert in the freezer is what stops the unplanned one.'),
+  // ===================== LACTOSE-FREE / GLUTEN-FREE SET =====================
+  // Built for a lactose- and gluten-intolerant, high-protein brief, leaning on
+  // curries, rice dishes, gluten-free pasta, refreshing salads, baked oats and
+  // smoothies. Protein comes mainly from chicken, lamb, beef and pork.
+
+  M('brk-baked-oats', 'Protein Baked Oats', 'breakfast', 25,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'make-ahead', 'sweet', 'anti-inflammatory', 'low-gi'],
+    [['oats', 55], ['protein_isolate', 1], ['egg_whites', 100], ['banana', 0.5], ['lf_greek_yoghurt', 80], ['blueberries', 70], ['cinnamon', 3], ['baking_powder', 3]],
+    'Blitz oats, protein, whites, banana and baking powder to a batter, pour into a ramekin, bake 20 minutes at 180C. It should still be slightly soft in the middle. Yoghurt and berries on top.',
+    'Bake four on Sunday and they reheat all week. Use gluten-free labelled oats - oats are naturally gluten free but routinely cross-contaminated.'),
+
+  M('brk-choc-baked-oats', 'Chocolate Baked Oats', 'breakfast', 25,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'make-ahead', 'sweet'],
+    [['oats', 55], ['protein_isolate', 1], ['egg_whites', 100], ['cacao_powder', 10], ['banana', 0.5], ['dark_chocolate', 10], ['sweetener', 6], ['baking_powder', 3]],
+    'Same method as the plain version, with cacao through the batter and the chocolate chopped and pushed in at the end so it melts into pockets.',
+    'Tastes like a warm brownie and lands at around 40g of protein.'),
+
+  M('brk-turkey-egg-muffins', 'Turkey Mince Egg Muffins', 'breakfast', 30,
+    ['lactose-free', 'gluten-free', 'make-ahead', 'savoury', 'high-protein', 'meal-prep'],
+    [['turkey_mince', 160], ['egg', 3], ['egg_whites', 80], ['capsicum', 80], ['spinach', 60], ['red_onion', 40], ['olive_oil', 6], ['spice_mix', 4], ['garlic', 8]],
+    'Brown the turkey with the onion and spices first and let it cool slightly, or the egg starts cooking as you mix. Divide between a muffin tin, pour over the beaten egg and whites, bake 18 minutes at 180C.',
+    'Makes six muffins. They keep four days in the fridge and reheat in a minute, which is the entire point of them.'),
+
+  M('brk-berry-smoothie', 'Berry Protein Smoothie', 'breakfast', 4,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'quick', 'no-cook', 'on-the-go', 'anti-inflammatory'],
+    [['protein_isolate', 1.5], ['frozen_berries', 150], ['almond_milk', 250], ['flaxseed', 12], ['lf_greek_yoghurt', 80], ['cinnamon', 2]],
+    'Everything in, blend until there are no seeds of berry left whole. Thicker with less milk, drinkable with more.',
+    'Flaxseed is doing the fibre work. Without it this is a drink you are hungry an hour after.'),
+
+  M('brk-turmeric-smoothie', 'Turmeric & Ginger Green Smoothie', 'breakfast', 4,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'quick', 'no-cook', 'anti-inflammatory'],
+    [['protein_isolate', 1.5], ['spinach', 60], ['banana', 0.5], ['almond_milk', 250], ['turmeric', 3], ['ginger', 8], ['chia_seeds', 12], ['lemon', 0.25]],
+    'Blend the spinach with the milk first until no flecks remain, then everything else. A grind of black pepper is traditional with turmeric.',
+    'Ginger and turmeric are here because you asked for them and they taste good together. Read docs/NUTRITION.md before expecting more than that from them.'),
+
+  M('brk-choc-smoothie', 'Cacao Banana Protein Smoothie', 'breakfast', 3,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'quick', 'no-cook', 'on-the-go'],
+    [['protein_isolate', 1.5], ['banana', 1], ['cacao_powder', 10], ['almond_milk', 280], ['peanut_powder', 15], ['cinnamon', 2]],
+    'Blend. Frozen banana makes it thick enough to eat with a spoon.',
+    'The one for mornings you are already late.'),
+
+  // ---- Lunches --------------------------------------------------------------
+  M('lun-chicken-pomegranate-salad', 'Chicken, Pomegranate & Herb Salad', 'lunch', 18,
+    ['lactose-free', 'gluten-free', 'refreshing', 'anti-inflammatory', 'high-protein', 'no-cook-option'],
+    [['chicken_breast', 170], ['salad_leaves', 80], ['rocket', 40], ['pomegranate', 60], ['cucumber', 80], ['herbs_fresh', 15], ['mint', 8], ['pumpkin_seeds', 14], ['olive_oil', 9], ['lemon', 0.75]],
+    'Grill the chicken with lemon and oregano, rest it, slice across the grain. Dress the leaves separately and build at the last minute so nothing wilts.',
+    'The one to make when you want lunch to feel light rather than like a meal-prep container.'),
+
+  M('lun-lamb-beetroot-salad', 'Lamb, Beetroot & Mint Salad', 'lunch', 20,
+    ['lactose-free', 'gluten-free', 'refreshing', 'iron', 'anti-inflammatory'],
+    [['lamb_leg', 150], ['beetroot', 120], ['rocket', 60], ['red_cabbage', 60], ['walnuts', 15], ['mint', 10], ['olive_oil', 9], ['balsamic', 12], ['lemon', 0.5]],
+    'Sear the lamb hard, 3 minutes a side for medium, and rest it properly - lamb goes tough if you cut it straight off the heat. Roast beetroot works better than boiled here.',
+    'Lamb and mint for the obvious reason. Beetroot and red cabbage make it worth looking at.'),
+
+  M('lun-thai-beef-salad', 'Thai Beef Salad', 'lunch', 18,
+    ['lactose-free', 'gluten-free', 'refreshing', 'iron', 'high-protein'],
+    [['beef_rump', 160], ['salad_leaves', 90], ['cucumber', 90], ['carrot', 60], ['red_onion', 35], ['herbs_fresh', 18], ['mint', 10], ['lime', 1], ['sriracha', 12], ['pumpkin_seeds', 12], ['olive_oil', 6]],
+    'Dressing is lime, chilli, a little sweetener and fish sauce if you use it. Slice the beef thin and toss it through while still warm so it takes up the dressing.',
+    'Refreshing and still 40g of protein. One of the better hot-day lunches.'),
+
+  M('lun-turmeric-chicken-rice', 'Turmeric Chicken Rice Bowl', 'lunch', 22,
+    ['lactose-free', 'gluten-free', 'meal-prep', 'anti-inflammatory', 'high-protein'],
+    [['chicken_breast', 170], ['basmati_rice', 140], ['turmeric', 4], ['broccoli', 120], ['carrot', 70], ['spinach', 50], ['olive_oil', 9], ['garlic', 10], ['ginger', 8], ['lemon', 0.5]],
+    'Cook the rice with turmeric and a little stock so it takes the colour through. Chicken separately, sliced over the top.',
+    'Batches well and the rice is better on day two.'),
+
+  M('lun-pork-slaw-bowl', 'Pork & Slaw Rice Bowl', 'lunch', 20,
+    ['lactose-free', 'gluten-free', 'meal-prep', 'quick'],
+    [['pork_loin', 170], ['brown_rice', 130], ['cabbage_slaw', 110], ['carrot', 60], ['red_cabbage', 50], ['sriracha', 12], ['olive_oil', 8], ['lime', 0.5], ['ginger', 8], ['pumpkin_seeds', 10]],
+    'Pork loin is lean enough to overcook in seconds - hot pan, 3 minutes a side, then rest. Dress the slaw with lime and a little sriracha.',
+    'Pork loin is one of the leanest high-protein meats in the shop and gets forgotten.'),
+
+  M('lun-chicken-gf-pasta-salad', 'Chicken & Herb Gluten-Free Pasta Salad', 'lunch', 18,
+    ['lactose-free', 'gluten-free', 'meal-prep', 'refreshing'],
+    [['chicken_breast', 160], ['gf_pasta', 140], ['cherry_tomatoes', 120], ['rocket', 50], ['red_onion', 35], ['herbs_fresh', 15], ['olive_oil', 10], ['lemon', 0.75], ['pumpkin_seeds', 12]],
+    'Rinse gluten-free pasta under cold water as soon as it is drained, or it sets into a block. Dress it while still slightly warm.',
+    'Gluten-free pasta is far better cold in a salad than hot with a sauce.'),
+
+  // ---- Dinners --------------------------------------------------------------
+  M('din-lamb-curry', 'Lamb & Spinach Curry', 'dinner', 45,
+    ['lactose-free', 'gluten-free', 'batch-cook', 'curry', 'iron', 'anti-inflammatory', 'family'],
+    [['lamb_leg', 175], ['tomato_passata', 200], ['spinach', 100], ['coconut_milk_light', 80], ['basmati_rice', 120], ['red_onion', 70], ['spice_mix', 8], ['turmeric', 3], ['garlic', 12], ['ginger', 12], ['olive_oil', 8]],
+    'Brown the lamb in batches and take it out before you soften the onion, or it stews instead of colouring. Back in with the spices, then a long slow simmer - 40 minutes minimum.',
+    'Better on the second day, which suits a repeating menu perfectly. Check your curry powder is gluten free; blends are a common hidden source.'),
+
+  M('din-chicken-tikka-curry', 'Chicken Tikka-Style Curry', 'dinner', 40,
+    ['lactose-free', 'gluten-free', 'batch-cook', 'curry', 'high-protein', 'family'],
+    [['chicken_thigh', 180], ['lf_greek_yoghurt', 100], ['tomato_passata', 200], ['coconut_milk_light', 70], ['basmati_rice', 120], ['red_onion', 70], ['spice_mix', 8], ['turmeric', 3], ['garlic', 12], ['ginger', 10], ['herbs_fresh', 12]],
+    'Marinate the chicken in lactose-free yoghurt, turmeric, garlic and ginger for at least an hour - it tenderises and it is where the flavour actually comes from. Grill or fry it hard before it goes into the sauce.',
+    'Lactose-free yoghurt behaves exactly like normal yoghurt in a marinade. Thigh over breast because it does not dry out on reheating.'),
+
+  M('din-beef-massaman', 'Beef Massaman-Style Curry', 'dinner', 50,
+    ['lactose-free', 'gluten-free', 'batch-cook', 'curry', 'iron', 'family'],
+    [['beef_rump', 175], ['coconut_milk_light', 140], ['sweet_potato', 150], ['basmati_rice', 110], ['green_beans', 90], ['red_onion', 60], ['spice_mix', 8], ['peanut_powder', 15], ['ginger', 10], ['garlic', 10], ['lime', 0.5]],
+    'Low and slow. The sweet potato goes in for the last 20 minutes only, or it disintegrates into the sauce.',
+    'Peanut powder gives the body a massaman wants without the calories of the paste and peanuts it normally takes.'),
+
+  M('din-pork-ginger-stirfry', 'Pork & Ginger Stir-Fry with Rice', 'dinner', 20,
+    ['lactose-free', 'gluten-free', 'quick', 'high-protein'],
+    [['pork_loin', 180], ['brown_rice', 130], ['broccoli', 120], ['capsicum', 90], ['carrot', 60], ['soy_sauce', 15], ['ginger', 14], ['garlic', 12], ['olive_oil', 9], ['sriracha', 10]],
+    'Use tamari rather than ordinary soy sauce - most soy sauce is brewed with wheat. Pan hot enough to sear; pork in and out fast.',
+    'Twenty minutes start to finish, and around 45g of protein.'),
+
+  M('din-chicken-gf-pasta', 'Chicken, Tomato & Basil Gluten-Free Pasta', 'dinner', 25,
+    ['lactose-free', 'gluten-free', 'quick', 'pasta', 'family'],
+    [['chicken_breast', 180], ['gf_pasta', 150], ['tomato_passata', 200], ['cherry_tomatoes', 100], ['spinach', 70], ['olive_oil', 10], ['garlic', 14], ['herbs_fresh', 15], ['red_onion', 50]],
+    'Gluten-free pasta goes from firm to mush in about a minute, so pull it early and finish it in the sauce. Keep a cup of the cooking water to loosen things.',
+    'Nutritional yeast on top gets you most of the way to parmesan without the dairy, if you miss it.'),
+
+  M('din-beef-ragu-gf', 'Slow Beef Ragu with Gluten-Free Pasta', 'dinner', 50,
+    ['lactose-free', 'gluten-free', 'batch-cook', 'pasta', 'iron', 'family'],
+    [['beef_mince_lean', 175], ['gf_pasta', 140], ['tomato_passata', 220], ['mushrooms', 100], ['carrot', 80], ['red_onion', 60], ['olive_oil', 9], ['garlic', 14], ['herbs_fresh', 12]],
+    'Grate the carrot and mushroom into the sauce so they disappear. Forty-five minutes minimum - ragu is a time recipe, not an ingredient recipe.',
+    'Freezes in portions. Sauce in the freezer beats willpower on a bad night.'),
+
+  M('din-lamb-kofta-rice', 'Lamb Kofta with Turmeric Rice', 'dinner', 30,
+    ['lactose-free', 'gluten-free', 'iron', 'anti-inflammatory', 'family'],
+    [['lamb_mince', 170], ['basmati_rice', 130], ['turmeric', 4], ['salad_leaves', 60], ['cucumber', 90], ['cherry_tomatoes', 90], ['lf_greek_yoghurt', 100], ['mint', 10], ['spice_mix', 6], ['garlic', 10], ['olive_oil', 7]],
+    'Mix the mince with cumin, coriander, garlic and mint and rest it ten minutes before shaping or the koftas crack. Lactose-free yoghurt with mint and lemon as the sauce.',
+    'Squeeze the cucumber dry if you grate it into the yoghurt, unless you want soup.'),
+
+  M('din-pork-beetroot-greens', 'Pork Loin with Roast Beetroot & Greens', 'dinner', 35,
+    ['lactose-free', 'gluten-free', 'anti-inflammatory', 'one-pan'],
+    [['pork_loin', 190], ['beetroot', 150], ['sweet_potato', 150], ['kale', 80], ['green_beans', 90], ['olive_oil', 10], ['balsamic', 12], ['garlic', 12], ['walnuts', 12]],
+    'Beetroot takes far longer than you think - 35 minutes at 200C, with the pork added for the last 12. Kale wilted in the pan juices at the end.',
+    'Pork and beetroot is an underrated pairing, and the whole plate is on the anti-inflammatory list.'),
+
+  M('din-chicken-coconut-curry', 'Chicken & Green Bean Coconut Curry', 'dinner', 30,
+    ['lactose-free', 'gluten-free', 'curry', 'quick', 'family'],
+    [['chicken_breast', 185], ['coconut_milk_light', 140], ['green_beans', 110], ['capsicum', 90], ['basmati_rice', 120], ['spice_mix', 7], ['turmeric', 3], ['ginger', 12], ['garlic', 12], ['lime', 0.5], ['herbs_fresh', 12]],
+    'Bloom the spices in oil for thirty seconds before anything else. Chicken in for six minutes, no more, or breast goes stringy in a wet sauce.',
+    'The fast curry for a weeknight, as opposed to the lamb one that wants forty minutes.'),
+
+  // ---- Snacks ---------------------------------------------------------------
+  M('snk-protein-shake', 'Protein Shake', 'snack', 2,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'quick', 'no-cook', 'on-the-go', 'high-protein'],
+    [['protein_isolate', 1.5], ['almond_milk', 300]],
+    'Shake. That is it.',
+    'Around 38g of protein for under 200 kcal. Isolate or plant protein rather than concentrate - concentrate still carries some lactose.'),
+
+  M('snk-shake-berries', 'Protein Shake with Berries', 'snack', 3,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'quick', 'no-cook', 'anti-inflammatory'],
+    [['protein_isolate', 1.5], ['almond_milk', 250], ['frozen_berries', 100], ['chia_seeds', 10]],
+    'Blend rather than shake, so the chia disperses instead of clumping.',
+    'The shake with something to chew on, for when a plain one does not hold you.'),
+
+  M('snk-dark-choc-almonds', 'Dark Chocolate & Almonds', 'snack', 1,
+    ['vegan', 'lactose-free', 'gluten-free', 'no-cook', 'quick', 'on-the-go'],
+    [['dark_chocolate', 20], ['almonds', 20]],
+    'Weigh both out. Eating either from the packet is how 20g becomes 80g.',
+    'Check the label - 85% dark chocolate is usually lactose free, but milk solids turn up in some brands.'),
+
+  M('snk-lf-yoghurt-berries', 'Lactose-Free Yoghurt & Berries', 'snack', 2,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'no-cook', 'quick', 'anti-inflammatory'],
+    [['lf_greek_yoghurt', 180], ['raspberries', 80], ['pumpkin_seeds', 12]],
+    'Stir, top, eat.',
+    'Same macros as ordinary Greek yoghurt. Lactose-free products are normal dairy with the lactase already added.'),
+
+  M('snk-edamame-chilli', 'Chilli Salted Edamame', 'snack', 5,
+    ['vegan', 'lactose-free', 'gluten-free', 'savoury', 'high-fibre'],
+    [['edamame', 180], ['spice_mix', 2], ['lime', 0.25]],
+    'Steam from frozen for four minutes. Sea salt, chilli flakes, lime.',
+    'Over 20g of protein from a vegetable, and genuinely filling.'),
+
+  // ---- Desserts -------------------------------------------------------------
+  M('des-lf-choc-mousse', 'Dark Chocolate Protein Mousse', 'dessert', 5,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'no-cook', 'quick'],
+    [['lf_greek_yoghurt', 150], ['protein_isolate', 0.75], ['cacao_powder', 8], ['dark_chocolate', 8], ['sweetener', 6], ['vanilla', 3]],
+    'Whip hard with a fork for a full minute - it genuinely aerates. Grate the chocolate over the top rather than melting it in.',
+    'Around 27g of protein in a dessert. The nightly one that keeps the plan survivable.'),
+
+  M('des-dark-choc-raspberries-lf', 'Dark Chocolate & Raspberries', 'dessert', 2,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'no-cook', 'quick', 'anti-inflammatory'],
+    [['dark_chocolate', 20], ['raspberries', 120], ['lf_greek_yoghurt', 100]],
+    'Three ingredients, no method.',
+    'Sometimes the answer is just chocolate, weighed.'),
+
+  M('des-choc-chia-lf', 'Chocolate Chia Pudding', 'dessert', 5,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'make-ahead', 'high-fibre'],
+    [['chia_seeds', 22], ['almond_milk', 170], ['cacao_powder', 8], ['protein_isolate', 0.5], ['sweetener', 6], ['raspberries', 60]],
+    'Whisk, wait five minutes, whisk again to break the clumps, refrigerate overnight.',
+    'Around 12g of fibre in a dessert, which is the whole argument for it.'),
+
+  M('des-choc-bark-lf', 'Frozen Dark Chocolate Yoghurt Bark', 'dessert', 10,
+    ['vegetarian', 'lactose-free', 'gluten-free', 'make-ahead', 'freezer'],
+    [['lf_greek_yoghurt', 170], ['protein_isolate', 0.5], ['dark_chocolate', 12], ['frozen_berries', 70], ['pumpkin_seeds', 8]],
+    'Spread the yoghurt thin on baking paper, scatter everything over, freeze three hours, snap into shards.',
+    'Make a tray on your prep day. A planned dessert in the freezer is what stops the unplanned one.'),
+
 ];
+
+/**
+ * Meals deliberately exempt from the library's protein-density floor.
+ *
+ * The floor exists so the library cannot drift into being a normal recipe
+ * collection with a protein label on it. A small number of items are treats by
+ * design, and pretending otherwise by bolting protein powder onto chocolate and
+ * almonds would make them worse, not better. The day-level protein target still
+ * has to be met either way, which is the constraint that actually matters.
+ */
+export const PROTEIN_FLOOR_EXEMPT = new Set(['snk-dark-choc-almonds']);
 
 export const SLOTS = ['breakfast', 'lunch', 'snack', 'dinner', 'dessert'];
 

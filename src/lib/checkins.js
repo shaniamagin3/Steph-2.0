@@ -64,6 +64,23 @@ export const HABITS = [
     why: 'Daily movement outside training is a large and very controllable slice of total energy expenditure. It also tends to fall quietly during a deficit, which is one of the main reasons progress stalls.',
   },
   {
+    key: 'trained',
+    label: 'Trained today',
+    /**
+     * A WEEKLY target, logged daily.
+     *
+     * Scoring this as a daily habit would mark every rest day a failure, which
+     * is both wrong and demoralising - rest days are part of training, not a
+     * lapse. So it is counted across the week and scored against 3-4 sessions,
+     * and it is excluded from the daily percentage entirely.
+     */
+    type: 'weekly-count',
+    weeklyTargetMin: 3,
+    weeklyTargetMax: 4,
+    icon: '🏋️',
+    why: 'Resistance training is what decides whether the weight you lose comes off fat or off muscle. Three to four sessions is the target; a rest day is not a missed day.',
+  },
+  {
     key: 'journaled',
     label: 'Journaled',
     type: 'boolean',
@@ -105,6 +122,9 @@ export function habitResult(habit, entry) {
   const v = entry[habit.key];
 
   switch (habit.type) {
+    case 'weekly-count':
+      // Deliberately unscored at the day level: see the habit definition.
+      return null;
     case 'boolean':
       return v === true ? 1 : 0;
     case 'number': {
@@ -126,17 +146,30 @@ export function habitResult(habit, entry) {
 
 /** Overall score for a day: 0..1 across all habits, plus how many were logged. */
 export function dailyScore(entry) {
+  const daily = HABITS.filter((h) => h.type !== 'weekly-count');
   const results = HABITS.map((h) => ({ habit: h, result: habitResult(h, entry) }));
-  const logged = results.filter((r) => r.result != null);
-  const sum = logged.reduce((a, r) => a + r.result, 0);
+  const scored = daily.map((h) => habitResult(h, entry)).filter((r) => r != null);
+  const sum = scored.reduce((a, r) => a + r, 0);
+
   return {
-    score: logged.length ? sum / logged.length : 0,
-    hit: results.filter((r) => r.result === 1).length,
-    of: HABITS.length,
-    loggedCount: logged.length,
+    score: scored.length ? sum / scored.length : 0,
+    hit: daily.filter((h) => habitResult(h, entry) === 1).length,
+    of: daily.length,
+    loggedCount: scored.length,
     results,
-    complete: logged.length === HABITS.length,
+    complete: scored.length === daily.length,
+    /** Weekly-target habits are reported separately; they are not daily wins. */
+    weekly: HABITS.filter((h) => h.type === 'weekly-count').map((h) => ({ key: h.key, doneToday: entry?.[h.key] === true })),
   };
+}
+
+/** How many times a weekly-count habit was logged in the week starting `weekStartIso`. */
+export function weeklyCount(dailyMap, habitKey, weekStartIso) {
+  let n = 0;
+  for (let i = 0; i < 7; i++) {
+    if (dailyMap[addDays(weekStartIso, i)]?.[habitKey] === true) n++;
+  }
+  return n;
 }
 
 /**
@@ -148,7 +181,7 @@ export function dailyScore(entry) {
  */
 export function habitStreak(dailyMap, habitKey, endDate = todayIso()) {
   const habit = HABITS.find((h) => h.key === habitKey);
-  if (!habit) return 0;
+  if (!habit || habit.type === 'weekly-count') return 0;
 
   let streak = 0;
   for (let i = 0; i < 400; i++) {
@@ -188,12 +221,34 @@ export function weeklyAdherence(dailyMap, weekStartIso) {
   const entries = days.map((d) => dailyMap[d]).filter(Boolean);
 
   const perHabit = HABITS.map((habit) => {
+    if (habit.type === 'weekly-count') {
+      const sessions = weeklyCount(dailyMap, habit.key, weekStartIso);
+      // A week with nothing logged is unknown, not zero sessions. Reporting 0%
+      // for a week you simply did not fill in is a lie in the discouraging
+      // direction, and the other habits already return null for the same reason.
+      const mean = entries.length ? Math.min(1, sessions / habit.weeklyTargetMin) : null;
+      return {
+        key: habit.key,
+        label: habit.label,
+        icon: habit.icon,
+        weekly: true,
+        sessions,
+        targetMin: habit.weeklyTargetMin,
+        targetMax: habit.weeklyTargetMax,
+        daysLogged: entries.length,
+        daysHit: sessions,
+        mean,
+        pct: mean == null ? null : Math.round(mean * 100),
+      };
+    }
+
     const results = entries.map((e) => habitResult(habit, e)).filter((r) => r != null);
     const mean = results.length ? results.reduce((a, b) => a + b, 0) / results.length : null;
     return {
       key: habit.key,
       label: habit.label,
       icon: habit.icon,
+      weekly: false,
       daysLogged: results.length,
       daysHit: results.filter((r) => r >= 1).length,
       mean,
@@ -375,6 +430,17 @@ export function weeklyInsights({ adherence, trend, phase, targetWeeklyChangeKg, 
       tone: 'info',
       text: `Steps came in under target most days. Daily movement tends to drop quietly during a deficit - it is a common reason the scale stalls while intake has not changed at all.`,
     });
+  }
+
+  const trained = adherence?.perHabit.find((h) => h.key === 'trained');
+  if (trained?.sessions != null && trained.pct != null) {
+    if (trained.sessions >= trained.targetMin) {
+      notes.push({ tone: 'good', text: `${trained.sessions} training sessions this week, against a target of ${trained.targetMin}-${trained.targetMax}. That is the single biggest thing protecting your muscle while you are in a deficit.` });
+    } else if (trained.sessions === 0 && adherence.daysLogged >= 4) {
+      notes.push({ tone: 'action', text: 'No training logged this week. In a deficit, resistance training is most of what decides whether the weight comes off fat or off muscle. If something is in the way, a shorter session beats a skipped one.' });
+    } else {
+      notes.push({ tone: 'info', text: `${trained.sessions} training session${trained.sessions === 1 ? '' : 's'} this week against a target of ${trained.targetMin}-${trained.targetMax}. Worth protecting the third one before you worry about anything else on this list.` });
+    }
   }
 
   const water = adherence?.perHabit.find((h) => h.key === 'water');

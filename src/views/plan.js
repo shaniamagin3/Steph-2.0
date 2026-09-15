@@ -3,7 +3,8 @@
  */
 
 import { html, raw, esc, fmt, toast, modal, confirmDialog } from '../lib/ui.js';
-import { generateWeek, regenerateDay, swapMeal, planQuality, randomSeed, batchPlan, planMode, weeklyIngredientLoad, PLAN_MODES, DAY_NAMES } from '../lib/planner.js';
+import { generateWeek, regenerateDay, swapMeal, planQuality, randomSeed, batchPlan, planMode, weeklyIngredientLoad, freeMealImpact, PLAN_MODES, DAY_NAMES } from '../lib/planner.js';
+import { labelChecks, mealSatisfiesAll } from '../lib/diet.js';
 import { mealMacros, mealIngredients, shoppingList } from '../lib/nutrition.js';
 import { getMeal, mealsForSlot } from '../lib/registry.js';
 import { SLOT_META } from '../data/meals.js';
@@ -95,6 +96,8 @@ export function render(ctx) {
 
     ${raw(repeating ? menuCard(plan) : '')}
     ${raw(repeating ? batchCard(plan) : '')}
+    ${raw(plan.freeMeal ? freeMealCard(plan) : '')}
+    ${raw(labelCard(plan, state.preferences.restrictions ?? []))}
     ${raw(showShopping ? shoppingCard(plan) : '')}
     ${raw(repeating ? '' : plan.days.map((day, i) => dayCard(day, i, plan)).join(''))}
   `;
@@ -106,6 +109,7 @@ function menuCard(plan) {
   const t = day.totals;
 
   const rows = day.entries.map((e, slotIndex) => {
+    if (e.freeMeal) return freeMealRow(e);
     const meal = getMeal(e.mealId);
     if (!meal) return '';
     const m = mealMacros(meal, e.servings);
@@ -224,6 +228,90 @@ function dailyLoadNote(plan) {
   return out.join('');
 }
 
+/**
+ * Ingredients in this plan whose safety depends on which brand you buy.
+ *
+ * The app can verify its own data. It cannot verify your cupboard, and
+ * pretending otherwise is exactly the kind of false confidence that gets
+ * someone with an intolerance caught out.
+ */
+function labelCard(plan, restrictions) {
+  if (!restrictions.length) return '';
+
+  const seen = new Map();
+  for (const day of plan.days) {
+    for (const e of day.entries) {
+      if (e.freeMeal || !e.mealId) continue;
+      for (const check of labelChecks(e.mealId, restrictions)) {
+        if (!seen.has(check)) seen.set(check, new Set());
+        seen.get(check).add(getMeal(e.mealId)?.name ?? e.mealId);
+      }
+    }
+  }
+  if (!seen.size) return '';
+
+  return `
+  <div class="card">
+    <div class="card__head">
+      <div><h2>Check these labels</h2>
+      <p class="card__sub">Every meal here passes your dietary rules on ingredients. These few depend on the brand.</p></div>
+    </div>
+    ${[...seen.entries()].map(([check, meals]) =>
+      `<div class="note note--warn small"><b>${esc(check)}</b><br><span class="muted">In: ${[...meals].map(esc).join(', ')}</span></div>`).join('')}
+    <p class="hint">The app checks its own ingredient data, which it can be certain about. It cannot check what is in your
+    cupboard, so it tells you what to read rather than assuming.</p>
+  </div>`;
+}
+
+function freeMealRow(e) {
+  return `
+    <div class="meal-row" style="background:var(--accent-soft)">
+      <div class="meal-row__slot">${esc(SLOT_META[e.slot]?.label ?? e.slot)}</div>
+      <div class="meal-row__body">
+        <div class="meal-row__name">Free meal &mdash; whatever you want</div>
+        <div class="meal-row__meta">Not planned and not counted.</div>
+      </div>
+    </div>`;
+}
+
+/**
+ * The honest arithmetic on a free meal.
+ *
+ * People routinely overestimate what one unplanned meal costs them and then eat
+ * badly for two days out of guilt, which costs far more. So rather than
+ * hand-waving, this does the sum.
+ */
+function freeMealCard(plan) {
+  const impact = freeMealImpact(plan);
+  if (!impact) return '';
+
+  return `
+  <div class="card">
+    <div class="card__head">
+      <div><h2>Your free meal</h2>
+      <p class="card__sub">${esc(plan.freeMeal.day)}, ${esc(SLOT_META[plan.freeMeal.slot]?.label.toLowerCase() ?? plan.freeMeal.slot)}. Unplanned and uncounted.</p></div>
+    </div>
+
+    <div class="grid grid--3">
+      <div class="stat"><div class="stat__label">Slot it replaces</div><div class="stat__value">${impact.replacedKcal}<small>kcal</small></div></div>
+      <div class="stat"><div class="stat__label">If the free meal is ~900</div><div class="stat__value">+${impact.extraKcal}<small>kcal</small></div></div>
+      <div class="stat stat--accent"><div class="stat__label">Of your week</div><div class="stat__value">${impact.pctOfWeek}<small>%</small></div></div>
+    </div>
+
+    <div class="note note--info" style="margin-top:14px">
+      <b>Do the sum before you feel bad about it.</b> The slot it replaces already had ${impact.replacedKcal} kcal in it.
+      If the free meal comes in around 900, the actual extra is roughly ${impact.extraKcal} kcal &mdash; about
+      ${impact.pctOfWeek}% of your week, or around ${Math.round(impact.kgEquivalent * 1000)}g of bodyweight on the
+      usual planning arithmetic.
+      <br><br>
+      That is the point of planning it in. One meal a week does not undo a deficit. What undoes a deficit is the
+      two days of guilt-eating that follow an <i>unplanned</i> one, which is a much bigger number and the reason
+      this slot exists at all. Eat it, enjoy it, and pick the plan back up at the next meal.
+    </div>
+    ${plan.targets.kcal < 1600 ? `<p class="hint">Your target is on the lower side, so a very large free meal will make a bigger dent proportionally. Nothing to fix &mdash; just worth knowing.</p>` : ''}
+  </div>`;
+}
+
 /** 5.25 reads better as 5 1/4 when it is a recipe multiplier. */
 function fmtPortions(n) {
   const whole = Math.floor(n);
@@ -251,6 +339,7 @@ function dayCard(day, dayIndex, plan) {
     : `<span class="badge badge--warn">${esc(day.score.verdict)}</span>`;
 
   const rows = day.entries.map((e, slotIndex) => {
+    if (e.freeMeal) return freeMealRow(e);
     const meal = getMeal(e.mealId);
     if (!meal) return '';
     const m = mealMacros(meal, e.servings);

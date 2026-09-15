@@ -6,7 +6,7 @@
  */
 
 import { html, raw, esc, fmt, numVal, debounce, toast } from '../lib/ui.js';
-import { HABITS, habitResult, dailyScore, habitStreak, loggingStreak, weightSeries, weightTrend } from '../lib/checkins.js';
+import { HABITS, habitResult, dailyScore, habitStreak, loggingStreak, weeklyCount, weightSeries, weightTrend } from '../lib/checkins.js';
 import { getMeal } from '../lib/registry.js';
 import { mealMacros } from '../lib/nutrition.js';
 import { SLOT_META } from '../data/meals.js';
@@ -152,6 +152,16 @@ function cycleCard(cycle, state) {
 
 function todaysMealsCard(planDay, targets) {
   const rows = planDay.entries.map((e) => {
+    if (e.freeMeal) {
+      return `
+        <div class="meal-row" style="background:var(--accent-soft)">
+          <div class="meal-row__slot">${esc(SLOT_META[e.slot]?.label ?? e.slot)}</div>
+          <div class="meal-row__body">
+            <div class="meal-row__name">Free meal &mdash; whatever you want</div>
+            <div class="meal-row__meta">Not counted. Eat it, enjoy it, and go back to the plan at the next meal.</div>
+          </div>
+        </div>`;
+    }
     const meal = getMeal(e.mealId);
     if (!meal) return '';
     const m = mealMacros(meal, e.servings);
@@ -169,10 +179,11 @@ function todaysMealsCard(planDay, targets) {
   }).join('');
 
   const t = planDay.totals;
+  const freeToday = planDay.entries.some((e) => e.freeMeal);
   return `
   <div class="card card--flush">
     <div class="day-card__head">
-      <div class="day-card__title">Today's plan
+      <div class="day-card__title">Today's plan${freeToday ? ' <span class="badge badge--accent">free meal day</span>' : ''}
         <span class="day-card__date">${esc(planDay.dayName)}</span>
       </div>
       <div class="day-card__macros">
@@ -205,9 +216,37 @@ function noPlanCard() {
 
 function habitRow(habit, entry, dailyMap, date) {
   const res = habitResult(habit, entry);
-  const hit = res === 1;
   const streak = habitStreak(dailyMap, habit.key, date);
 
+  // A weekly-target habit is shown against the week's count, not today's state,
+  // so a rest day does not read as a failure.
+  if (habit.type === 'weekly-count') {
+    const done = weeklyCount(dailyMap, habit.key, weekStart(date));
+    const onTrack = done >= habit.weeklyTargetMin;
+    const pct = Math.min(100, (done / habit.weeklyTargetMin) * 100);
+    return `
+      <div class="habit ${onTrack ? 'habit--hit' : ''}">
+        <span class="habit__icon" aria-hidden="true">${habit.icon}</span>
+        <div class="habit__body">
+          <div class="habit__label">${esc(habit.label)}
+            <span class="badge ${onTrack ? 'badge--good' : ''}">${done} of ${habit.weeklyTargetMin}&ndash;${habit.weeklyTargetMax} this week</span>
+          </div>
+          <div class="progress-track" style="margin:6px 0 4px;max-width:220px">
+            <div class="progress-fill ${onTrack ? 'progress-fill--good' : ''}" style="width:${pct.toFixed(0)}%"></div>
+          </div>
+          <details class="habit__why-wrap">
+            <summary class="habit__why-toggle">Why this one</summary>
+            <div class="habit__why">${esc(habit.why)}</div>
+          </details>
+        </div>
+        <div class="habit__control">
+          <button class="toggle" role="switch" aria-pressed="${entry[habit.key] === true}"
+            aria-label="${esc(habit.label)}" data-habit="${habit.key}" data-type="boolean"></button>
+        </div>
+      </div>`;
+  }
+
+  const hit = res === 1;
   let control = '';
   if (habit.type === 'boolean') {
     control = `<button class="toggle" role="switch" aria-pressed="${entry[habit.key] === true}"

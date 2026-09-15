@@ -1,6 +1,6 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateWeek, generateDay, swapMeal, regenerateDay, planQuality, candidatePool, strictPool, mealHasTag, slotBudgets, batchPlan, planMode, anchorProteins, weeklyIngredientLoad, rng, DEFAULT_PREFERENCES } from '../src/lib/planner.js';
+import { generateWeek, generateDay, swapMeal, regenerateDay, planQuality, candidatePool, strictPool, allowedPool, mealHasTag, slotBudgets, batchPlan, planMode, anchorProteins, proteinFamilyCounts, weeklyIngredientLoad, freeMealImpact, rng, DEFAULT_PREFERENCES } from '../src/lib/planner.js';
 import { computeTargets } from '../src/lib/energy.js';
 import { dayTotals, shoppingList, weekTotals } from '../src/lib/nutrition.js';
 import { setCustomMeals } from '../src/lib/registry.js';
@@ -419,20 +419,30 @@ describe('protein-source diversity in a repeating menu', () => {
     assert.ok(!anchorProteins(chicken).has('broccoli'));
   });
 
-  test('a menu never builds two slots on the same main protein', () => {
-    // Eating tuna at lunch and tuna again at snack is fourteen tins a week,
-    // not two, and it is the fastest way to abandon a repeating menu.
+  test('a menu never builds two slots on the same protein family', () => {
+    // Eating tuna at lunch and tuna again at snack is fourteen tins a week, not
+    // two. Families rather than exact ingredients, so chicken breast at lunch
+    // and chicken thigh at dinner counts as the repeat it is.
     const offenders = [];
     for (let seed = 1; seed <= 40; seed++) {
       const plan = generateWeek({ targets: DEFICIT, seed, startDate: '2026-09-14' });
-      const counts = new Map();
-      for (const e of plan.days[0].entries) {
-        const meal = MEALS.find((m) => m.id === e.mealId);
-        for (const id of anchorProteins(meal)) counts.set(id, (counts.get(id) ?? 0) + 1);
+      for (const [fam, n] of proteinFamilyCounts(plan.days[0].entries)) {
+        if (n >= 2) offenders.push(`seed ${seed}: ${fam} anchors ${n} slots`);
       }
-      for (const [id, n] of counts) if (n >= 2) offenders.push(`seed ${seed}: ${id} anchors ${n} slots`);
     }
     assert.deepEqual(offenders, [], offenders.join('\n'));
+  });
+
+  test('protein powder is exempt, because repeating it is the point', () => {
+    // A shake as a snack AND protein in your smoothie is a deliberate way to
+    // hit a high target, not monotony to design out.
+    const shake = MEALS.find((m) => m.id === 'snk-protein-shake');
+    const smoothie = MEALS.find((m) => m.id === 'brk-berry-smoothie');
+    const counts = proteinFamilyCounts([
+      { mealId: shake.id, servings: 1, slot: 'snack' },
+      { mealId: smoothie.id, servings: 1, slot: 'breakfast' },
+    ]);
+    assert.ok(!counts.has('protein_isolate'), 'protein powder should not count toward repetition');
   });
 });
 
@@ -467,5 +477,88 @@ describe('weeklyIngredientLoad', () => {
     const plan = generateWeek({ targets: DEFICIT, seed: 53, startDate: '2026-09-14' });
     const load = weeklyIngredientLoad(plan);
     assert.ok(!load.some((i) => ['garlic', 'spice_mix', 'cinnamon', 'lemon'].includes(i.id)));
+  });
+});
+
+describe('free meal', () => {
+  const prefs = { freeMeal: { enabled: true, day: 'Saturday', slot: 'dinner' } };
+
+  test('leaves exactly one slot on one day unplanned', () => {
+    const plan = generateWeek({ targets: DEFICIT, seed: 40, startDate: '2026-09-14', prefs });
+    const free = plan.days.flatMap((d, i) => d.entries.map((e) => ({ ...e, dayIndex: i }))).filter((e) => e.freeMeal);
+    assert.equal(free.length, 1);
+    assert.equal(free[0].dayIndex, 5);       // Saturday
+    assert.equal(free[0].slot, 'dinner');
+  });
+
+  test('contributes nothing to that day\'s totals', () => {
+    const plan = generateWeek({ targets: DEFICIT, seed: 41, startDate: '2026-09-14', prefs });
+    const saturday = plan.days[5];
+    const other = plan.days[0];
+    assert.ok(saturday.totals.kcal < other.totals.kcal, 'the free-meal day should count fewer planned calories');
+    assert.ok(saturday.totals.kcal > 0);
+  });
+
+  test('never appears on the shopping list', () => {
+    const plan = generateWeek({ targets: DEFICIT, seed: 42, startDate: '2026-09-14', prefs });
+    const list = shoppingList(plan);
+    assert.ok(list.itemCount > 10, 'the rest of the week should still be shopped for');
+    for (const items of Object.values(list.aisles)) {
+      for (const i of items) assert.ok(i.exactQty > 0);
+    }
+  });
+
+  test('is off unless you turn it on', () => {
+    const plan = generateWeek({ targets: DEFICIT, seed: 43, startDate: '2026-09-14', prefs: {} });
+    assert.equal(plan.freeMeal, undefined);
+    assert.ok(!plan.days.some((d) => d.entries.some((e) => e.freeMeal)));
+  });
+
+  test('quantifies its cost rather than hand-waving', () => {
+    const plan = generateWeek({ targets: DEFICIT, seed: 44, startDate: '2026-09-14', prefs });
+    const impact = freeMealImpact(plan, 900);
+    assert.ok(impact.replacedKcal > 0, 'it should know what the slot it replaced was worth');
+    assert.equal(impact.extraKcal, Math.max(0, 900 - impact.replacedKcal));
+    assert.ok(impact.pctOfWeek > 0 && impact.pctOfWeek < 15, `one meal should be a small share of the week, got ${impact.pctOfWeek}%`);
+  });
+
+  test('a free meal smaller than the slot it replaces costs nothing', () => {
+    const plan = generateWeek({ targets: DEFICIT, seed: 45, startDate: '2026-09-14', prefs });
+    const impact = freeMealImpact(plan, 100);
+    assert.equal(impact.extraKcal, 0, 'extra calories must not go negative');
+  });
+
+  test('an unknown day name is ignored rather than corrupting the plan', () => {
+    const plan = generateWeek({
+      targets: DEFICIT, seed: 46, startDate: '2026-09-14',
+      prefs: { freeMeal: { enabled: true, day: 'Blursday', slot: 'dinner' } },
+    });
+    assert.equal(plan.days.length, 7);
+    assert.ok(!plan.days.some((d) => d.entries.some((e) => e.freeMeal)));
+  });
+});
+
+describe('preferred proteins', () => {
+  test('steer the menu without excluding everything else', () => {
+    const preferred = ['chicken', 'lamb', 'beef', 'pork'];
+    let matched = 0;
+    let total = 0;
+    for (let seed = 1; seed <= 25; seed++) {
+      const plan = generateWeek({
+        targets: DEFICIT, seed, startDate: '2026-09-14',
+        prefs: { restrictions: ['lactose-free', 'gluten-free'], preferredProteins: preferred },
+      });
+      for (const [fam, n] of proteinFamilyCounts(plan.days[0].entries)) {
+        total += n;
+        if (preferred.includes(fam)) matched += n;
+      }
+    }
+    assert.ok(total > 0);
+    assert.ok(matched / total >= 0.6, `only ${Math.round((matched / total) * 100)}% of protein slots used a preferred family`);
+  });
+
+  test('remain a nudge: the wider library is still reachable', () => {
+    const pool = allowedPool('dinner', { preferredProteins: ['chicken'] });
+    assert.ok(pool.length > 5, 'preferring a protein must not shrink the candidate pool');
   });
 });

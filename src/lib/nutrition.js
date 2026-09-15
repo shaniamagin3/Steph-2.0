@@ -124,14 +124,24 @@ export function sumMacros(entries) {
  */
 export function dayTotals(day) {
   const acc = { ...EMPTY };
-  for (const e of day.entries) addInto(acc, mealMacrosRaw(e.mealId, e.servings));
+  // A free meal contributes nothing the app can know. Pretending to estimate it
+  // would be inventing a number, so it is simply left out of the totals.
+  for (const e of day.entries) {
+    if (e.freeMeal || !e.mealId) continue;
+    addInto(acc, mealMacrosRaw(e.mealId, e.servings));
+  }
   return roundMacros(acc);
 }
 
 /** Totals across a whole week's plan. */
 export function weekTotals(plan) {
   const acc = { ...EMPTY };
-  for (const day of plan.days) for (const e of day.entries) addInto(acc, mealMacrosRaw(e.mealId, e.servings));
+  for (const day of plan.days) {
+    for (const e of day.entries) {
+      if (e.freeMeal || !e.mealId) continue;
+      addInto(acc, mealMacrosRaw(e.mealId, e.servings));
+    }
+  }
   const total = roundMacros(acc);
   const n = plan.days.length || 1;
   return {
@@ -154,6 +164,7 @@ export function shoppingList(plan) {
 
   for (const day of plan.days) {
     for (const entry of day.entries) {
+      if (entry.freeMeal || !entry.mealId) continue;
       const meal = getMeal(entry.mealId);
       if (!meal?.items?.length) continue;
       for (const [id, qty] of meal.items) {

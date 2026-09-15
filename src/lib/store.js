@@ -34,12 +34,28 @@ export function defaultState() {
       activityKey: 'light',
       proteinGPerKg: 2.0,
       fatPctOfKcal: 0.30,
+      knownMaintenanceKcal: null,
+      minKcal: null,
       hasPcos: true,
       notes: '',
     },
     program: null,
     programSettings: { ...PROGRAM_DEFAULTS },
-    preferences: { ...DEFAULT_PREFERENCES },
+    /**
+     * Starting preferences. These are this repository owner's stated setup, so
+     * the app is useful on first open rather than needing ten minutes of
+     * configuration. Everything here is editable on the Setup tab, and personal
+     * metrics (age, height, weight, maintenance) are deliberately left blank
+     * rather than committed to source control.
+     */
+    preferences: {
+      ...DEFAULT_PREFERENCES,
+      planMode: 'repeating',
+      restrictions: ['lactose-free', 'gluten-free'],
+      excludedIngredients: ['tuna_canned'],
+      preferredProteins: ['chicken', 'lamb', 'beef', 'pork'],
+      freeMeal: { enabled: true, day: 'Saturday', slot: 'dinner' },
+    },
     customMeals: [],
     plans: {},    // weekStart ISO -> plan
     daily: {},    // ISO date -> daily entry
@@ -68,6 +84,7 @@ function hydrate(loaded) {
   merged.profile = { ...base.profile, ...(loaded.profile ?? {}) };
   merged.programSettings = { ...base.programSettings, ...(loaded.programSettings ?? {}) };
   merged.preferences = { ...base.preferences, ...(loaded.preferences ?? {}) };
+  merged.preferences.freeMeal = { ...base.preferences.freeMeal, ...(loaded.preferences?.freeMeal ?? {}) };
   merged.cycle = { ...base.cycle, ...(loaded.cycle ?? {}) };
   merged.settings = { ...base.settings, ...(loaded.settings ?? {}) };
   merged.customMeals = Array.isArray(loaded.customMeals) ? loaded.customMeals : [];

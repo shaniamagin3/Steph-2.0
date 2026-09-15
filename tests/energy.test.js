@@ -170,3 +170,68 @@ test('projectedWeeklyChangeKg is negative for a deficit', () => {
   assert.ok(projectedWeeklyChangeKg(2000, 1600) < 0);
   assert.equal(projectedWeeklyChangeKg(2000, 2000), 0);
 });
+
+describe('known maintenance and a personal floor', () => {
+  const base = { sex: 'female', weightKg: 82, heightCm: 166, age: 34, activityKey: 'light', proteinGPerKg: 2.0, fatPctOfKcal: 0.30 };
+
+  test('a stated maintenance replaces the equation', () => {
+    const t = computeTargets({ ...base, knownMaintenanceKcal: 2000 }, 'maintenance');
+    assert.equal(t.maintenance, 2000);
+    assert.equal(t.kcal, 2000);
+    assert.equal(t.usingKnownMaintenance, true);
+    assert.ok(t.predictedMaintenance !== 2000, 'the prediction should still be reported for comparison');
+  });
+
+  test('the deficit is taken off the stated maintenance, not the predicted one', () => {
+    const t = computeTargets({ ...base, knownMaintenanceKcal: 1800 }, 'deficit', 0.10);
+    assert.equal(t.requested, 1620);
+    assert.equal(t.kcal, 1620);
+    // The predicted maintenance would have given 1890, so the stated figure is
+    // clearly the one being used.
+    assert.ok(t.predictedMaintenance > 1800);
+  });
+
+  test('without a personal floor, a deep deficit off a low stated maintenance is caught by BMR', () => {
+    const t = computeTargets({ ...base, knownMaintenanceKcal: 1800 }, 'deficit', 0.20);
+    assert.equal(t.requested, 1440);
+    assert.equal(t.kcal, t.bmr, 'should be raised to the BMR floor');
+    assert.match(t.floorReason, /BMR/);
+  });
+
+  test('a personal floor is respected', () => {
+    const t = computeTargets({ ...base, knownMaintenanceKcal: 1800, minKcal: 1450 }, 'deficit', 0.20);
+    assert.equal(t.kcal, 1450);
+    assert.equal(t.floored, true);
+    assert.match(t.floorReason, /floor you set/);
+  });
+
+  test('a personal floor overrides the BMR floor, but says so', () => {
+    // Her own history of what she has actually eaten beats the equation's guess
+    // at her BMR - but going under it is flagged, not hidden.
+    const t = computeTargets({ ...base, knownMaintenanceKcal: 2000, minKcal: 1450 }, 'deficit', 0.25);
+    assert.ok(t.kcal < t.bmr, 'the user floor should be allowed below predicted BMR');
+    assert.equal(t.belowBmr, true);
+    assert.ok(t.warnings.some((w) => /below your estimated BMR/.test(w)));
+  });
+
+  test('the absolute floor still cannot be overridden', () => {
+    const t = computeTargets({ ...base, knownMaintenanceKcal: 1400, minKcal: 900 }, 'deficit', 0.25);
+    assert.ok(t.kcal >= SAFETY.minDailyKcal, `${t.kcal} is below the hard floor`);
+  });
+
+  test('the BMR floor still applies when no personal floor is set', () => {
+    const t = computeTargets({ ...base, knownMaintenanceKcal: 1700 }, 'deficit', 0.25);
+    assert.ok(t.kcal >= t.bmr, 'without an explicit floor, BMR is still respected');
+  });
+
+  test('a stated maintenance far from the prediction is queried, not silently used', () => {
+    const t = computeTargets({ ...base, knownMaintenanceKcal: 1400 }, 'maintenance');
+    assert.ok(t.warnings.some((w) => /differs from the equation/.test(w)));
+  });
+
+  test('no stated maintenance falls back to the equation cleanly', () => {
+    const t = computeTargets(base, 'deficit', 0.18);
+    assert.equal(t.usingKnownMaintenance, false);
+    assert.equal(t.maintenance, t.predictedMaintenance);
+  });
+});

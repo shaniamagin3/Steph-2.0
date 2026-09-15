@@ -6,7 +6,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { INGREDIENTS, BY_ID, AISLE_ORDER, ATWATER_EXEMPT } from '../src/data/ingredients.js';
-import { MEALS, SLOTS, SLOT_META } from '../src/data/meals.js';
+import { MEALS, SLOTS, SLOT_META, PROTEIN_FLOOR_EXEMPT } from '../src/data/meals.js';
 import { mealMacros, lineMacros } from '../src/lib/nutrition.js';
 
 describe('ingredient table', () => {
@@ -131,6 +131,7 @@ describe('meal library', () => {
     // Every meal should draw a meaningful share of its energy from protein.
     const weak = [];
     for (const m of MEALS) {
+      if (PROTEIN_FLOOR_EXEMPT.has(m.id)) continue;
       const mm = mealMacros(m, 1);
       const pct = (mm.protein * 4) / mm.kcal;
       // Snacks and desserts get a lower bar; they are smaller and sweeter.
@@ -169,5 +170,18 @@ describe('lineMacros', () => {
   });
   test('throws on an unknown ingredient rather than silently contributing zero', () => {
     assert.throws(() => lineMacros('unicorn_steak', 100), RangeError);
+  });
+});
+
+
+describe('protein floor exemptions', () => {
+  test('every exemption names a real meal', () => {
+    for (const id of PROTEIN_FLOOR_EXEMPT) {
+      assert.ok(MEALS.some((m) => m.id === id), `PROTEIN_FLOOR_EXEMPT names "${id}", which is not in the library`);
+    }
+  });
+
+  test('exemptions stay rare, or the floor means nothing', () => {
+    assert.ok(PROTEIN_FLOOR_EXEMPT.size <= 3, `${PROTEIN_FLOOR_EXEMPT.size} exemptions is too many for a floor to be meaningful`);
   });
 });
