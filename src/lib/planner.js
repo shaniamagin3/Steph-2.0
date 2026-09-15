@@ -699,6 +699,44 @@ export function regenerateDay(plan, dayIndex, prefs, seed = randomSeed()) {
   return next;
 }
 
+/**
+ * Is this calorie target being spread too thinly across too many eating
+ * occasions?
+ *
+ * At a low target, six eating occasions means six small plates. The planner
+ * handles that correctly by shrinking every portion, but shrinking everything
+ * to its minimum is a signal worth surfacing rather than hiding: the honest
+ * answer is usually "have fewer, bigger meals", and that is the user's call to
+ * make, not the app's to make silently.
+ */
+export function portionAdvice(plan) {
+  const entries = (plan.menu?.entries ?? plan.days[0]?.entries ?? []).filter((e) => !e.freeMeal);
+  if (!entries.length) return null;
+
+  const atMinimum = entries.filter((e) => e.servings <= 0.5).length;
+  const share = atMinimum / entries.length;
+  if (share < 0.5) return null;
+
+  const snacks = entries.filter((e) => e.slot === 'snack').length;
+  const hasDessert = entries.some((e) => e.slot === 'dessert');
+
+  const fixes = [];
+  if (snacks > 1) fixes.push('drop to one snack a day');
+  if (snacks <= 1 && hasDessert) fixes.push('drop the daily dessert');
+  fixes.push('accept smaller plates, which is a perfectly reasonable choice');
+
+  return {
+    atMinimum,
+    of: entries.length,
+    headline: `${atMinimum} of your ${entries.length} meals are at the smallest portion the app will plan.`,
+    body: `At ${plan.targets.kcal} kcal spread across ${entries.length} eating occasions, every plate ends up small. `
+      + `Nothing here is wrong - the macros still land - but if the portions feel mean rather than satisfying, the fix is fewer eating occasions rather than less food: `
+      + `${fixes.join(', or ')}. `
+      + `Fewer, larger meals at the same calories is usually more satisfying than more, smaller ones.`,
+    suggestFewerSnacks: snacks > 1,
+  };
+}
+
 /** A quick read on how well the whole week fits. */
 export function planQuality(plan) {
   const repeating = planMode(plan) === 'repeating';

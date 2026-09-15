@@ -21,10 +21,16 @@ dependency.
 npm run serve      # http://localhost:8080
 ```
 
-**On the web:** pushing to `main` or the working branch runs the tests and, if
-they pass, publishes to GitHub Pages at
-`https://<owner>.github.io/Steph-2.0/` — see `.github/workflows/pages.yml`.
-The workflow enables Pages itself on first run.
+**On the web:** pushing runs the tests and, if they pass, publishes to GitHub
+Pages at `https://<owner>.github.io/Steph-2.0/` — see
+`.github/workflows/pages.yml`.
+
+This needs **one manual step, once**: go to *Settings → Pages → Build and
+deployment* and set **Source** to **GitHub Actions**, then re-run the workflow.
+The workflow cannot do this itself — creating a Pages site requires admin rights
+on the repository, which a workflow token deliberately does not have. If Pages
+is not yet enabled, the deploy job fails with those instructions rather than a
+cryptic API error.
 
 Or open `index.html` through any static file server. It deploys to Netlify or
 similar as-is, with nothing to configure.

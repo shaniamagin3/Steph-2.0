@@ -1,6 +1,6 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateWeek, generateDay, swapMeal, regenerateDay, planQuality, candidatePool, strictPool, allowedPool, mealHasTag, slotBudgets, batchPlan, planMode, anchorProteins, proteinFamilyCounts, weeklyIngredientLoad, freeMealImpact, rng, DEFAULT_PREFERENCES } from '../src/lib/planner.js';
+import { generateWeek, generateDay, swapMeal, regenerateDay, planQuality, candidatePool, strictPool, allowedPool, mealHasTag, slotBudgets, batchPlan, planMode, anchorProteins, proteinFamilyCounts, weeklyIngredientLoad, freeMealImpact, portionAdvice, rng, DEFAULT_PREFERENCES } from '../src/lib/planner.js';
 import { computeTargets } from '../src/lib/energy.js';
 import { dayTotals, shoppingList, weekTotals } from '../src/lib/nutrition.js';
 import { setCustomMeals } from '../src/lib/registry.js';
@@ -560,5 +560,46 @@ describe('preferred proteins', () => {
   test('remain a nudge: the wider library is still reachable', () => {
     const pool = allowedPool('dinner', { preferredProteins: ['chicken'] });
     assert.ok(pool.length > 5, 'preferring a protein must not shrink the candidate pool');
+  });
+});
+
+describe('portion advice', () => {
+  const PROF = { sex: 'female', weightKg: 82.4, heightCm: 166, age: 34, activityKey: 'light', proteinGPerKg: 2.0, fatPctOfKcal: 0.30, knownMaintenanceKcal: 2000, minKcal: 1450 };
+  const prefs = { restrictions: ['lactose-free', 'gluten-free'], preferredProteins: ['chicken', 'lamb', 'beef', 'pork'] };
+
+  test('stays quiet when portions are sensible', () => {
+    const t = computeTargets(PROF, 'maintenance');
+    const plan = generateWeek({ targets: t, seed: 3, startDate: '2026-09-14', prefs });
+    assert.equal(portionAdvice(plan), null);
+  });
+
+  test('flags a low target spread across six eating occasions', () => {
+    const t = computeTargets(PROF, 'deficit', 0.25);
+    const plan = generateWeek({ targets: t, seed: 3, startDate: '2026-09-14', prefs: { ...prefs, snacksPerDay: 2 } });
+    const advice = portionAdvice(plan);
+    assert.ok(advice, 'should flag when most slots bottom out');
+    assert.ok(advice.atMinimum >= advice.of / 2);
+    assert.match(advice.body, /fewer eating occasions rather than less food/);
+    assert.equal(advice.suggestFewerSnacks, true);
+  });
+
+  test('the suggested fix actually works', () => {
+    const t = computeTargets(PROF, 'deficit', 0.25);
+    const before = generateWeek({ targets: t, seed: 3, startDate: '2026-09-14', prefs: { ...prefs, snacksPerDay: 2 } });
+    const after = generateWeek({ targets: t, seed: 3, startDate: '2026-09-14', prefs: { ...prefs, snacksPerDay: 1 } });
+    assert.ok(portionAdvice(before), 'two snacks should flag');
+    assert.equal(portionAdvice(after), null, 'one snack should resolve it');
+    // And the day still hits its target.
+    assert.ok(Math.abs(after.days[0].totals.kcal - t.kcal) <= t.kcal * 0.05);
+  });
+
+  test('ignores the free meal slot when judging portions', () => {
+    const t = computeTargets(PROF, 'deficit', 0.25);
+    const plan = generateWeek({
+      targets: t, seed: 4, startDate: '2026-09-14',
+      prefs: { ...prefs, snacksPerDay: 2, freeMeal: { enabled: true, day: 'Saturday', slot: 'dinner' } },
+    });
+    const advice = portionAdvice(plan);
+    if (advice) assert.ok(advice.of <= 6, 'a free meal is not a portion to judge');
   });
 });

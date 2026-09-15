@@ -1,7 +1,15 @@
 # Deploy Steph 2.0 to GitHub Pages.
 #
-# The app is plain HTML, CSS and ES modules with no build step, so this just
-# runs the tests and then uploads the repository as-is.
+# The app is plain HTML, CSS and ES modules with no build step, so this runs the
+# test suite and, if it passes, uploads the repository as-is.
+#
+# ONE-TIME SETUP, which has to be done by a repo admin in the browser:
+#   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
+#
+# It cannot be automated from here. Enabling Pages needs admin rights on the
+# repository, and the token a workflow runs with deliberately does not have
+# them - the API returns "Resource not accessible by integration". Once the
+# source is set, every push to a branch below publishes automatically.
 name: Deploy to GitHub Pages
 
 on:
@@ -38,15 +46,31 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-        # Turns Pages on for the repo if it is not already enabled, so this
-        # works without anyone visiting the settings screen.
-        with:
-          enablement: true
+
+      - name: Configure Pages
+        id: configure
+        continue-on-error: true
+        uses: actions/configure-pages@v5
+
+      - name: Explain what to do if Pages is not enabled
+        if: steps.configure.outcome == 'failure'
+        run: |
+          echo "::error::GitHub Pages is not enabled for this repository yet."
+          echo ""
+          echo "The tests passed and the site is ready to publish. To turn it on:"
+          echo "  1. Go to Settings -> Pages"
+          echo "  2. Under 'Build and deployment', set Source to 'GitHub Actions'"
+          echo "  3. Re-run this workflow"
+          echo ""
+          echo "This step cannot enable Pages itself: creating a Pages site needs"
+          echo "admin rights, which a workflow token does not have by design."
+          exit 1
+
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
+
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

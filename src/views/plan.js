@@ -3,7 +3,7 @@
  */
 
 import { html, raw, esc, fmt, toast, modal, confirmDialog } from '../lib/ui.js';
-import { generateWeek, regenerateDay, swapMeal, planQuality, randomSeed, batchPlan, planMode, weeklyIngredientLoad, freeMealImpact, PLAN_MODES, DAY_NAMES } from '../lib/planner.js';
+import { generateWeek, regenerateDay, swapMeal, planQuality, randomSeed, batchPlan, planMode, weeklyIngredientLoad, freeMealImpact, portionAdvice, PLAN_MODES, DAY_NAMES } from '../lib/planner.js';
 import { labelChecks, mealSatisfiesAll } from '../lib/diet.js';
 import { mealMacros, mealIngredients, shoppingList } from '../lib/nutrition.js';
 import { getMeal, mealsForSlot } from '../lib/registry.js';
@@ -92,6 +92,7 @@ export function render(ctx) {
       ${raw(stats)}
       ${raw(warn)}
       ${raw(fibreNote)}
+      ${raw(portionNote(plan))}
     </div>
 
     ${raw(repeating ? menuCard(plan) : '')}
@@ -260,6 +261,16 @@ function labelCard(plan, restrictions) {
       `<div class="note note--warn small"><b>${esc(check)}</b><br><span class="muted">In: ${[...meals].map(esc).join(', ')}</span></div>`).join('')}
     <p class="hint">The app checks its own ingredient data, which it can be certain about. It cannot check what is in your
     cupboard, so it tells you what to read rather than assuming.</p>
+  </div>`;
+}
+
+/** Says so when a target is being spread across more meals than it comfortably fits. */
+function portionNote(plan) {
+  const advice = portionAdvice(plan);
+  if (!advice) return '';
+  return `<div class="note note--info small">
+    <b>${esc(advice.headline)}</b><br>${esc(advice.body)}
+    ${advice.suggestFewerSnacks ? '<br><button class="btn btn--sm" data-action="one-snack" style="margin-top:8px">Switch to one snack a day</button>' : ''}
   </div>`;
 }
 
@@ -444,6 +455,17 @@ export function afterRender(root, ctx) {
     });
     store.setPlan(ws, plan);
     toast('New week generated');
+    ctx.rerender();
+  });
+
+  root.querySelector('[data-action="one-snack"]')?.addEventListener('click', () => {
+    store.update((s) => { s.preferences.snacksPerDay = 1; });
+    const plan = generateWeek({
+      targets: ctx.targets, prefs: buildPrefs(store.getState(), ws),
+      startDate: ws, seed: randomSeed(), phase: ctx.status.phase,
+    });
+    store.setPlan(ws, plan);
+    toast('Switched to one snack and rebuilt');
     ctx.rerender();
   });
 
