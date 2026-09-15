@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="A PCOS-aware nutrition and habit coaching app: phased calorie targets, high-protein meal plans, daily weigh-ins and habit check-ins, weekly reflections, cycle tracking and photo check-ins. All data stays on your device.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#faf8f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#141312" media="(prefers-color-scheme: dark)">
+  <title>Steph 2.0</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header__inner">
+      <div class="brand">Steph <span>2.0</span> <small>your plan, your data</small></div>
+      <div class="header-spacer"></div>
+      <span class="phase-pill" data-phase-pill>Loading&hellip;</span>
+    </div>
+    <nav class="nav" aria-label="Sections"></nav>
+  </header>
+
+  <main>
+    <div class="empty"><p>Loading&hellip;</p></div>
+  </main>
+
+  <noscript>
+    <div style="padding:24px;max-width:600px;margin:0 auto">
+      <h1>JavaScript required</h1>
+      <p>This app runs entirely in your browser with no server, which means it needs JavaScript enabled to work at all.</p>
+    </div>
+  </noscript>
+
+  <script type="module">
+    import { start } from './src/app.js';
+    start();
+  </script>
+</body>
+</html>

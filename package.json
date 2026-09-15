@@ -1,0 +1,14 @@
+{
+  "name": "steph-2.0",
+  "version": "1.0.0",
+  "description": "A self-hosted PCOS-aware nutrition and habit coaching app: phased calorie targets, high-protein weekly meal plans, daily weigh-ins and habit check-ins, weekly reflections and measurements, cycle tracking, and 4-weekly photo check-ins.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "serve": "node scripts/serve.js",
+    "check": "node --test tests/*.test.js"
+  },
+  "keywords": ["pcos", "nutrition", "meal-planning", "habit-tracking", "macros"],
+  "license": "MIT"
+}
